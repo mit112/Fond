@@ -1,0 +1,58 @@
+# ── macOS ──
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# ── Xcode ──
+*.xcodeproj/xcuserdata/
+*.xcworkspace/xcuserdata/
+*.xcodeproj/project.xcworkspace/xcuserdata/
+xcuserdata/
+*.xccheckout
+*.moved-aside
+DerivedData/
+build/
+*.hmap
+*.ipa
+*.dSYM.zip
+*.dSYM
+*.pbxuser
+!default.pbxuser
+*.mode1v3
+!default.mode1v3
+*.mode2v3
+!default.mode2v3
+*.perspectivev3
+!default.perspectivev3
+
+# ── Swift Package Manager ──
+.build/
+Package.resolved
+.swiftpm/
+
+# ── CocoaPods (just in case) ──
+Pods/
+
+# ── Firebase / Node ──
+.firebase/
+firebase-debug.log*
+firestore-debug.log*
+ui-debug.log*
+node_modules/
+functions/lib/
+*.log
+npm-debug.log*
+
+# ── Secrets — NEVER commit ──
+AuthKey*.p8
+*.p12
+*.mobileprovision
+.env
+.env.*
+
+# ── Misc ──
+*.tgz
+.eslintcache

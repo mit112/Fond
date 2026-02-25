@@ -1,0 +1,131 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── Helper Functions ───
+
+    /// Returns true if the request comes from an authenticated user.
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    /// Returns true if the authenticated user's UID matches the given uid.
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+
+    /// Returns true if the authenticated user is one of the two users in a connection.
+    function isConnectionMember(connectionData) {
+      return isSignedIn()
+        && (request.auth.uid == connectionData.user1
+            || request.auth.uid == connectionData.user2);
+    }
+
+    /// Returns the authenticated user's own user document data.
+    function myUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // ─── Users Collection ───
+
+    match /users/{uid} {
+
+      // Read: owner always, OR their partner (verified via partnerUid field).
+      allow read: if isOwner(uid)
+        || (isSignedIn() && myUserDoc().partnerUid == uid);
+
+      // Create: only the owner can create their own user doc.
+      allow create: if isOwner(uid);
+
+      // Update: only the owner can update their own user doc.
+      allow update: if isOwner(uid);
+
+      // Delete: not allowed from client (Cloud Function handles unlink cleanup).
+      allow delete: if false;
+
+      // ─── Devices Subcollection ───
+      match /devices/{deviceId} {
+        // Only the owner can read/write their own device registrations.
+        allow read, write: if isOwner(uid);
+      }
+    }
+
+    // ─── Codes Collection (Pairing) ───
+
+    match /codes/{code} {
+
+      // Read: any authenticated user can look up a code.
+      allow read: if isSignedIn();
+
+      // Create: any authenticated user can generate a pairing code.
+      // Validates required fields and types.
+      allow create: if isSignedIn()
+        && request.resource.data.creatorUid == request.auth.uid
+        && request.resource.data.claimed == false
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.createdAt is timestamp;
+
+      // Update: any authenticated user can claim an unclaimed code.
+      // Only the 'claimed' field can change from false to true.
+      allow update: if isSignedIn()
+        && resource.data.claimed == false
+        && request.resource.data.claimed == true
+        && request.resource.data.creatorUid == resource.data.creatorUid
+        && request.resource.data.expiresAt == resource.data.expiresAt
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      // Delete: only via Cloud Function (expireCodes scheduled function).
+      allow delete: if false;
+    }
+
+    // ─── Connections Collection ───
+
+    match /connections/{connectionId} {
+
+      // Read: only the two connected users.
+      allow read: if isSignedIn() && isConnectionMember(resource.data);
+
+      // Create: any authenticated user (pairing creates this).
+      // Validates the creator is one of the two users.
+      allow create: if isSignedIn()
+        && (request.resource.data.user1 == request.auth.uid
+            || request.resource.data.user2 == request.auth.uid)
+        && request.resource.data.isActive == true
+        && request.resource.data.createdAt is timestamp;
+
+      // Update: only connection members (e.g. setting isActive = false).
+      allow update: if isSignedIn() && isConnectionMember(resource.data);
+
+      // Delete: not allowed from client.
+      allow delete: if false;
+
+      // ─── History Subcollection (Append-Only) ───
+      match /history/{entryId} {
+
+        // Read: only the two connected users.
+        allow read: if isSignedIn()
+          && isConnectionMember(
+            get(/databases/$(database)/documents/connections/$(connectionId)).data
+          );
+
+        // Create: only connected users, and only for their own entries.
+        allow create: if isSignedIn()
+          && isConnectionMember(
+            get(/databases/$(database)/documents/connections/$(connectionId)).data
+          )
+          && request.resource.data.authorUid == request.auth.uid
+          && request.resource.data.type in ['status', 'message']
+          && request.resource.data.timestamp is timestamp;
+
+        // Update/Delete: history is immutable.
+        allow update, delete: if false;
+      }
+    }
+
+    // ─── Catch-All: Deny everything else ───
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
