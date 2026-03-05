@@ -53,6 +53,11 @@ AuthKey*.p8
 .env
 .env.*
 
+# ── Firebase config (contains API key) ──
+GoogleService-Info.plist
+google-services.json
+.firebaserc
+
 # ── Misc ──
 *.tgz
 .eslintcache
