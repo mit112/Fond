@@ -60,27 +60,27 @@ struct PairingView: View {
         }
     }
 
+    @Namespace private var segmentNamespace
+
     private func segmentButton(_ title: String, tag: Int) -> some View {
-        Button {
+        let isSelected = selectedTab == tag
+        return Button {
             selectedTab = tag
         } label: {
             Text(title)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(
-                    selectedTab == tag ? FondColors.text : FondColors.textSecondary
+                    isSelected ? FondColors.text : FondColors.textSecondary
                 )
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
-                .background(
-                    Group {
-                        if selectedTab == tag {
-                            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                .fill(FondColors.surface.opacity(0.5))
-                        }
-                    }
-                )
         }
         .buttonStyle(.plain)
+        .fondGlass(
+            in: RoundedRectangle(cornerRadius: 10, style: .continuous),
+            tinted: isSelected
+        )
+        .opacity(isSelected ? 1.0 : 0.6)
         .animation(.fondQuick, value: selectedTab)
     }
 }
@@ -144,7 +144,7 @@ struct GenerateCodeView: View {
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
                 }
-                .fondGlassPlain(
+                .fondGlassInteractive(
                     in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                 )
                 .padding(.top, 4)
@@ -166,7 +166,7 @@ struct GenerateCodeView: View {
                     .frame(height: 52)
                 }
                 .disabled(isGenerating)
-                .fondGlass(
+                .fondGlassInteractive(
                     in: RoundedRectangle(cornerRadius: 14, style: .continuous),
                     tinted: true
                 )

@@ -5,6 +5,13 @@
 //  FCM token management + device registration in Firestore.
 //  Registers each device's tokens so the Cloud Function can fan out pushes.
 //
+//  Background push handling (two paths, in priority order):
+//  1. FAST PATH: Decrypt partner data directly from the push payload
+//     (~1ms, no network). The Cloud Function now includes encrypted fields
+//     in the FCM data payload. The NSE also does this independently.
+//  2. FALLBACK: Fetch from Firestore if payload is missing encrypted fields
+//     (backward compat with old Cloud Function, or edge cases).
+//
 //  Target: Main app only.
 //
 
@@ -103,20 +110,278 @@ final class PushManager: NSObject, Sendable {
         }
     }
 
-    // MARK: - Handle Incoming Push
+    // MARK: - Handle Incoming Push (Background-Safe, Async)
 
-    /// Handle silent push notification data.
+    /// Primary push handler — called from AppDelegate's
+    /// didReceiveRemoteNotification:fetchCompletionHandler:.
+    ///
+    /// Tries payload-first decryption (fast, no network), falls back to
+    /// Firestore fetch if the push payload doesn't contain encrypted fields.
+    /// The Notification Service Extension (NSE) also decrypts from the
+    /// payload independently — this handler is the belt to the NSE's suspenders.
+    func handlePushDataAsync(_ userInfo: [AnyHashable: Any]) async -> UIBackgroundFetchResult {
+        guard let type = userInfo["type"] as? String else {
+            return .noData
+        }
+
+        print("[PushManager] Background push received: type=\(type)")
+
+        switch type {
+        case "status", "message", "nudge", "heartbeat", "promptAnswer":
+            // Fast path: try to decrypt directly from push payload (~1ms)
+            if decryptFromPayload(userInfo) {
+                print("[PushManager] Fast path: decrypted from push payload")
+                return .newData
+            }
+            // Fallback: fetch from Firestore (~1-2s)
+            print("[PushManager] Falling back to Firestore fetch")
+            return await refreshPartnerDataFromFirestore()
+        case "unlink":
+            try? KeychainManager.shared.deleteAllKeys()
+            clearAppGroup()
+            WidgetCenter.shared.reloadAllTimelines()
+            return .newData
+        default:
+            return .noData
+        }
+    }
+
+    // MARK: - Fast Path: Decrypt from Push Payload
+
+    /// Decrypts partner data directly from the push payload without any
+    /// network calls. Returns true if the payload contained encrypted fields
+    /// and decryption succeeded, false if fallback to Firestore is needed.
+    ///
+    /// The notifyPartner Cloud Function includes the caller's encrypted
+    /// fields in the FCM data payload. FCM delivers these as top-level
+    /// keys in userInfo (not nested under "data").
+    private func decryptFromPayload(_ userInfo: [AnyHashable: Any]) -> Bool {
+        // Check if payload contains encrypted fields (new Cloud Function format)
+        guard userInfo["encryptedName"] is String ||
+              userInfo["encryptedStatus"] is String else {
+            return false
+        }
+
+        // Decrypt all available fields
+        let name = EncryptionManager.shared.decryptOrNil(
+            userInfo["encryptedName"] as? String
+        ) ?? "Your person"
+
+        var status: UserStatus?
+        if let encStatus = userInfo["encryptedStatus"] as? String,
+           let statusRaw = EncryptionManager.shared.decryptOrNil(encStatus) {
+            status = UserStatus(rawValue: statusRaw)
+        }
+
+        let message = EncryptionManager.shared.decryptOrNil(
+            userInfo["encryptedMessage"] as? String
+        )
+
+        // Heartbeat
+        var heartbeatBpm: Int?
+        if let encHB = userInfo["encryptedHeartbeat"] as? String,
+           let json = EncryptionManager.shared.decryptOrNil(encHB),
+           let jsonData = json.data(using: .utf8),
+           let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+            heartbeatBpm = dict["bpm"] as? Int
+        }
+
+        // Location + distance
+        var distanceMiles: Double?
+        var partnerCity: String?
+        #if canImport(CoreLocation)
+        if let encLoc = userInfo["encryptedLocation"] as? String,
+           let locJSON = EncryptionManager.shared.decryptOrNil(encLoc),
+           let locData = locJSON.data(using: .utf8),
+           let locDict = try? JSONSerialization.jsonObject(with: locData) as? [String: Any],
+           let partnerLat = locDict["lat"] as? Double,
+           let partnerLon = locDict["lon"] as? Double,
+           let myLat = LocationManager.shared.latitude,
+           let myLon = LocationManager.shared.longitude {
+            distanceMiles = LocationManager.haversineDistance(
+                lat1: myLat, lon1: myLon,
+                lat2: partnerLat, lon2: partnerLon
+            )
+            // Note: reverse geocode is async and we're sync here.
+            // Distance is written; city will be picked up by ConnectedView listener.
+        }
+        #endif
+
+        // Prompt answer
+        if let encPrompt = userInfo["encryptedPromptAnswer"] as? String {
+            DailyPromptManager.shared.receivePartnerAnswer(
+                encryptedAnswer: encPrompt
+            )
+        }
+
+        // Write to App Group (this also calls reloadAllTimelines)
+        FirebaseManager.shared.writePartnerDataToAppGroup(
+            name: name,
+            status: status,
+            message: message,
+            lastUpdated: Date(),
+            heartbeatBpm: heartbeatBpm,
+            distanceMiles: distanceMiles,
+            partnerCity: partnerCity
+        )
+
+        // Sync to Apple Watch
+        #if os(iOS)
+        WatchSyncManager.shared.syncPartnerData(
+            name: name,
+            status: status?.rawValue,
+            statusEmoji: status?.emoji,
+            message: message,
+            lastUpdated: Date(),
+            heartbeatBpm: heartbeatBpm,
+            distanceMiles: distanceMiles,
+            promptText: DailyPromptManager.shared.todaysPrompt?.text,
+            partnerPromptAnswer: DailyPromptManager.shared.partnerAnswer
+        )
+        #endif
+
+        print("[PushManager] Payload decryption success: \(name), status=\(status?.rawValue ?? "nil")")
+        return true
+    }
+
+    // MARK: - Fallback: Fetch from Firestore
+
+    /// Fallback path — fetches partner's latest Firestore doc, decrypts all
+    /// fields, writes to App Group, and triggers widget reload.
+    /// Only used when the push payload doesn't contain encrypted fields
+    /// (old Cloud Function version or edge cases).
+    private func refreshPartnerDataFromFirestore() async -> UIBackgroundFetchResult {
+        guard let uid = Auth.auth().currentUser?.uid else {
+            print("[PushManager] No authenticated user for background refresh")
+            return .failed
+        }
+
+        do {
+            let db = Firestore.firestore()
+
+            // 1. Get partner UID from our own user doc
+            let userDoc = try await db.collection(FondConstants.usersCollection)
+                .document(uid)
+                .getDocument()
+            guard let userData = userDoc.data(),
+                  let partnerUid = userData["partnerUid"] as? String,
+                  !partnerUid.isEmpty else {
+                print("[PushManager] No partner UID found")
+                return .failed
+            }
+
+            // 2. Fetch partner's latest document
+            let partnerDoc = try await db.collection(FondConstants.usersCollection)
+                .document(partnerUid)
+                .getDocument()
+            guard let partnerData = partnerDoc.data() else {
+                print("[PushManager] Partner document empty")
+                return .failed
+            }
+
+            // 3. Decrypt all partner fields
+            let name = EncryptionManager.shared.decryptOrNil(
+                partnerData["encryptedName"] as? String
+            ) ?? "Your person"
+
+            var status: UserStatus?
+            if let encStatus = partnerData["encryptedStatus"] as? String,
+               let statusRaw = EncryptionManager.shared.decryptOrNil(encStatus) {
+                status = UserStatus(rawValue: statusRaw)
+            }
+
+            let message = EncryptionManager.shared.decryptOrNil(
+                partnerData["encryptedMessage"] as? String
+            )
+
+            let lastUpdated = (partnerData["lastUpdatedAt"] as? Timestamp)?.dateValue()
+
+            // Parse heartbeat if present
+            var heartbeatBpm: Int?
+            if let encHB = partnerData["encryptedHeartbeat"] as? String,
+               let json = EncryptionManager.shared.decryptOrNil(encHB),
+               let jsonData = json.data(using: .utf8),
+               let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+                heartbeatBpm = dict["bpm"] as? Int
+            }
+
+            // Parse location + compute distance if available
+            var distanceMiles: Double?
+            var partnerCity: String?
+            #if canImport(CoreLocation)
+            if let encLoc = partnerData["encryptedLocation"] as? String,
+               let locJSON = EncryptionManager.shared.decryptOrNil(encLoc),
+               let locData = locJSON.data(using: .utf8),
+               let locDict = try? JSONSerialization.jsonObject(with: locData) as? [String: Any],
+               let partnerLat = locDict["lat"] as? Double,
+               let partnerLon = locDict["lon"] as? Double,
+               let myLat = LocationManager.shared.latitude,
+               let myLon = LocationManager.shared.longitude {
+                distanceMiles = LocationManager.haversineDistance(
+                    lat1: myLat, lon1: myLon,
+                    lat2: partnerLat, lon2: partnerLon
+                )
+                partnerCity = await LocationManager.reverseGeocode(
+                    lat: partnerLat, lon: partnerLon
+                )
+            }
+            #endif
+
+            // Parse prompt answer if present
+            if let encPrompt = partnerData["encryptedPromptAnswer"] as? String {
+                DailyPromptManager.shared.receivePartnerAnswer(
+                    encryptedAnswer: encPrompt
+                )
+            }
+
+            // 4. Write decrypted data to App Group (this also calls reloadAllTimelines)
+            FirebaseManager.shared.writePartnerDataToAppGroup(
+                name: name,
+                status: status,
+                message: message,
+                lastUpdated: lastUpdated,
+                heartbeatBpm: heartbeatBpm,
+                distanceMiles: distanceMiles,
+                partnerCity: partnerCity
+            )
+
+            // 5. Sync to Apple Watch if available
+            #if os(iOS)
+            WatchSyncManager.shared.syncPartnerData(
+                name: name,
+                status: status?.rawValue,
+                statusEmoji: status?.emoji,
+                message: message,
+                lastUpdated: lastUpdated,
+                heartbeatBpm: heartbeatBpm,
+                distanceMiles: distanceMiles,
+                promptText: DailyPromptManager.shared.todaysPrompt?.text,
+                partnerPromptAnswer: DailyPromptManager.shared.partnerAnswer
+            )
+            #endif
+
+            print("[PushManager] Background refresh success: \(name), status=\(status?.rawValue ?? "nil")")
+            return .newData
+        } catch {
+            print("[PushManager] Background refresh failed: \(error.localizedDescription)")
+            return .failed
+        }
+    }
+
+    // MARK: - Handle Incoming Push (Legacy sync — used when app is foregrounded)
+
+    /// Synchronous handler for when the app is already active in the foreground.
+    /// The Firestore listener in ConnectedView handles the real-time update;
+    /// this just ensures widgets also refresh.
     func handlePushData(_ userInfo: [AnyHashable: Any]) {
         guard let type = userInfo["type"] as? String else { return }
 
         switch type {
-        case "status", "message":
-            // Write to App Group UserDefaults so widget can read
-            writeToAppGroup(userInfo)
-            // Trigger widget timeline reload (backup — widget push also triggers this)
+        case "status", "message", "nudge", "heartbeat", "promptAnswer":
+            // Firestore listener in ConnectedView will handle the data update.
+            // Just trigger a widget reload as a safety net.
             WidgetCenter.shared.reloadAllTimelines()
         case "unlink":
-            // Partner disconnected — clean up
             try? KeychainManager.shared.deleteAllKeys()
             clearAppGroup()
             WidgetCenter.shared.reloadAllTimelines()
@@ -125,14 +390,7 @@ final class PushManager: NSObject, Sendable {
         }
     }
 
-    // MARK: - App Group UserDefaults (for Widget)
-
-    private func writeToAppGroup(_ userInfo: [AnyHashable: Any]) {
-        guard let defaults = UserDefaults(suiteName: FondConstants.appGroupID) else { return }
-        defaults.set(Date(), forKey: FondConstants.partnerLastUpdatedKey)
-        // Widget will re-read from Firestore or use cached decrypted values
-        // Full encrypted→decrypted pipeline happens in the app, widget reads plaintext from App Group
-    }
+    // MARK: - App Group Cleanup
 
     private func clearAppGroup() {
         guard let defaults = UserDefaults(suiteName: FondConstants.appGroupID) else { return }
@@ -140,6 +398,14 @@ final class PushManager: NSObject, Sendable {
         defaults.removeObject(forKey: FondConstants.partnerStatusKey)
         defaults.removeObject(forKey: FondConstants.partnerMessageKey)
         defaults.removeObject(forKey: FondConstants.partnerLastUpdatedKey)
+        defaults.removeObject(forKey: FondConstants.partnerHeartbeatKey)
+        defaults.removeObject(forKey: FondConstants.partnerHeartbeatTimeKey)
+        defaults.removeObject(forKey: FondConstants.distanceMilesKey)
+        defaults.removeObject(forKey: FondConstants.partnerCityKey)
+        defaults.removeObject(forKey: FondConstants.partnerPromptAnswerKey)
+        defaults.removeObject(forKey: FondConstants.dailyPromptIdKey)
+        defaults.removeObject(forKey: FondConstants.dailyPromptTextKey)
+        defaults.removeObject(forKey: FondConstants.myPromptAnswerKey)
         defaults.set(ConnectionState.unpaired.rawValue, forKey: FondConstants.connectionStateKey)
     }
 }

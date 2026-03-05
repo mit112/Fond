@@ -107,6 +107,7 @@ export const unlinkConnection = onCall(
       });
 
       // 5a. FCM push (app notification)
+      // mutable-content: 1 so the NSE can intercept and clear App Group
       if (fcmTokens.length > 0) {
         const messaging = getMessaging();
         await messaging.sendEachForMulticast({
@@ -122,11 +123,14 @@ export const unlinkConnection = onCall(
             },
             payload: {
               aps: {
-                alert: {
+                "alert": {
                   title: "Fond",
                   body: "Your connection has ended.",
                 },
-                sound: "default",
+                "sound": "default",
+                "mutable-content": 1,
+                "content-available": 1,
+                "category": "fond.unlink",
               },
             },
           },

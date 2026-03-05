@@ -106,23 +106,31 @@ extension View {
 
 // MARK: - Fond Card Modifier
 
-/// Applies a subtle elevated card style — used for the partner card, input areas.
-/// On iOS 26 this could optionally use glass; for now uses surface color + shadow.
+/// Applies an elevated card style — Liquid Glass `.clear` on iOS 26,
+/// falls back to surface color + shadow on earlier versions.
 struct FondCardModifier: ViewModifier {
     var cornerRadius: CGFloat = 20
 
     func body(content: Content) -> some View {
-        content
-            .background(
-                RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                    .fill(FondColors.surface.opacity(0.6))
-                    .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
-            )
+        if #available(iOS 26, macOS 26, watchOS 26, *) {
+            content
+                .glassEffect(
+                    .clear,
+                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                )
+        } else {
+            content
+                .background(
+                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                        .fill(FondColors.surface.opacity(0.6))
+                        .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
+                )
+        }
     }
 }
 
 extension View {
-    /// Applies the Fond card style (surface color, rounded corners, soft shadow).
+    /// Applies the Fond card style — clear glass on iOS 26, surface + shadow on earlier.
     func fondCard(cornerRadius: CGFloat = 20) -> some View {
         modifier(FondCardModifier(cornerRadius: cornerRadius))
     }
@@ -142,6 +150,23 @@ extension View {
             let glass: Glass = tinted
                 ? .regular.tint(FondColors.amber)
                 : .regular
+            self.glassEffect(glass, in: shape)
+        } else {
+            self.background(shape.fill(.ultraThinMaterial))
+        }
+    }
+
+    /// Interactive Liquid Glass — for tappable buttons and controls.
+    /// Adds press feedback (scale bounce + shimmer) on iOS 26.
+    @ViewBuilder
+    func fondGlassInteractive(
+        in shape: some Shape = Capsule(),
+        tinted: Bool = false
+    ) -> some View {
+        if #available(iOS 26, macOS 26, watchOS 26, *) {
+            let glass: Glass = tinted
+                ? .regular.tint(FondColors.amber).interactive()
+                : .regular.interactive()
             self.glassEffect(glass, in: shape)
         } else {
             self.background(shape.fill(.ultraThinMaterial))

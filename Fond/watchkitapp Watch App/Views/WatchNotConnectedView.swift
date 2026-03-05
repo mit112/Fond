@@ -11,12 +11,13 @@ import SwiftUI
 struct WatchNotConnectedView: View {
     var body: some View {
         ZStack {
-            FondColors.background.ignoresSafeArea()
+            FondMeshGradient()
 
             VStack(spacing: 16) {
                 Image(systemName: "heart.slash")
                     .font(.system(size: 36))
                     .foregroundStyle(FondColors.textSecondary)
+                    .symbolEffect(.breathe)
 
                 Text("Not Connected")
                     .font(.headline)

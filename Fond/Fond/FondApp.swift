@@ -57,14 +57,21 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         #endif
     }
 
-    // Handle silent push notifications
+    // Handle push notifications (background + foreground)
+    // iOS gives us ~30 seconds to fetch data when woken by a push.
+    // We use this to pull partner's latest data from Firestore, decrypt it,
+    // and write to App Group so the widget can display it immediately.
     func application(_ application: UIApplication,
                      didReceiveRemoteNotification userInfo: [AnyHashable: Any],
                      fetchCompletionHandler completionHandler: @escaping (UIBackgroundFetchResult) -> Void) {
         #if canImport(FirebaseMessaging)
-        PushManager.shared.handlePushData(userInfo)
+        Task {
+            let result = await PushManager.shared.handlePushDataAsync(userInfo)
+            completionHandler(result)
+        }
+        #else
+        completionHandler(.noData)
         #endif
-        completionHandler(.newData)
     }
 }
 #endif

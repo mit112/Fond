@@ -6,8 +6,8 @@
 //  Bidirectional: also sends nudge ("thinking of you") and heartbeat
 //  to the partner via iPhone → Firebase pipeline.
 //
-//  Design: Warm background, centered layout, status emoji as visual anchor.
-//  Action buttons at the bottom for nudge + heartbeat.
+//  Design: Warm gradient background, large status emoji as visual anchor.
+//  Glass-styled action buttons on watchOS 26.
 //
 //  Design reference: docs/02-design-direction.md (watchOS section)
 //
@@ -26,14 +26,15 @@ struct WatchConnectedView: View {
             FondMeshGradient()
 
             ScrollView {
-                VStack(spacing: 10) {
+                VStack(spacing: 8) {
 
                     // ── Partner Display ──
 
                     Text(dataStore.partnerStatusEmoji ?? "⏳")
-                        .font(.system(size: 48))
+                        .font(.system(size: 56))
                         .scaleEffect(emojiBounce ? 1.15 : 1.0)
                         .animation(.fondSpring, value: emojiBounce)
+                        .padding(.top, 4)
 
                     Text(dataStore.partnerName ?? "Your person")
                         .font(.title3.bold())
@@ -54,6 +55,7 @@ struct WatchConnectedView: View {
                             .multilineTextAlignment(.center)
                             .lineLimit(3)
                             .padding(.horizontal, 4)
+                            .padding(.top, 2)
                     }
 
                     if let lastUpdated = dataStore.partnerLastUpdated {
@@ -65,11 +67,11 @@ struct WatchConnectedView: View {
 
                     // ── Action Buttons ──
 
-                    Divider()
-                        .padding(.vertical, 4)
-
-                    nudgeButton
-                    heartbeatButton
+                    VStack(spacing: 8) {
+                        nudgeButton
+                        heartbeatButton
+                    }
+                    .padding(.top, 8)
 
                     // Feedback
                     if let error = dataStore.sendError {
@@ -79,7 +81,7 @@ struct WatchConnectedView: View {
                             .transition(.opacity)
                     }
                 }
-                .padding(.vertical, 8)
+                .padding(.vertical, 4)
             }
         }
         .onChange(of: dataStore.partnerStatus) {
@@ -105,6 +107,7 @@ struct WatchConnectedView: View {
                 } else if dataStore.sendSuccess {
                     Image(systemName: "checkmark")
                         .font(.body.weight(.semibold))
+                        .contentTransition(.symbolEffect(.replace))
                 } else {
                     Text("💛")
                     Text("Thinking of You")
@@ -114,8 +117,10 @@ struct WatchConnectedView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
         }
-        .buttonStyle(.borderedProminent)
-        .tint(FondColors.amber.opacity(0.3))
+        .fondGlassInteractive(
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous),
+            tinted: true
+        )
         .disabled(dataStore.isSending || !dataStore.canSend)
     }
 
@@ -138,6 +143,7 @@ struct WatchConnectedView: View {
                     Image(systemName: "heart.fill")
                         .font(.footnote)
                         .foregroundStyle(FondColors.rose)
+                        .symbolEffect(.pulse, options: .repeating)
                     if let bpm = heartbeatManager.lastBpm {
                         Text("Send \(bpm) bpm")
                             .font(.footnote.weight(.medium))
@@ -150,7 +156,9 @@ struct WatchConnectedView: View {
             .frame(maxWidth: .infinity)
             .padding(.vertical, 8)
         }
-        .buttonStyle(.bordered)
+        .fondGlassInteractive(
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+        )
         .disabled(
             dataStore.isSending
             || !dataStore.canSend
@@ -169,7 +177,7 @@ struct WatchConnectedView: View {
 
     private func statusColor(_ raw: String) -> Color {
         if let status = UserStatus(rawValue: raw) {
-            return status.accentColor
+            return status.statusColor
         }
         return FondColors.textSecondary
     }

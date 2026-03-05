@@ -82,7 +82,7 @@ struct KeySyncView: View {
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 14)
                             }
-                            .fondGlass(
+                            .fondGlassInteractive(
                                 in: RoundedRectangle(cornerRadius: 14, style: .continuous),
                                 tinted: true
                             )

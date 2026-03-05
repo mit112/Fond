@@ -3,7 +3,7 @@
 //  Fond
 //
 //  Sign-in screen with Apple + Google Sign-In.
-//  Animated mesh gradient background, glass-styled buttons at bottom.
+//  Animated mesh gradient background, Liquid Glass buttons.
 //
 //  Design reference: docs/02-design-direction.md
 //
@@ -14,6 +14,8 @@ import AuthenticationServices
 struct SignInView: View {
     var authManager: AuthManager
 
+    @State private var appeared = false
+
     var body: some View {
         ZStack {
             // Animated background
@@ -23,14 +25,23 @@ struct SignInView: View {
                 Spacer()
 
                 // App branding — centered hero
-                VStack(spacing: 12) {
+                VStack(spacing: 16) {
+                    Image(systemName: "heart.fill")
+                        .font(.system(size: 44))
+                        .foregroundStyle(FondColors.amber)
+                        .symbolEffect(.breathe)
+                        .opacity(appeared ? 1 : 0)
+                        .offset(y: appeared ? 0 : 10)
+
                     Text("Fond")
                         .font(.system(size: 52, weight: .bold, design: .rounded))
                         .foregroundStyle(FondColors.text)
+                        .opacity(appeared ? 1 : 0)
 
                     Text("Your Person, At a Glance")
                         .font(.title3)
                         .foregroundStyle(FondColors.textSecondary)
+                        .opacity(appeared ? 1 : 0)
                 }
 
                 Spacer()
@@ -47,7 +58,7 @@ struct SignInView: View {
                     }
                     .signInWithAppleButtonStyle(.black)
                     .frame(height: 52)
-                    .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+                    .clipShape(RoundedRectangle(cornerRadius: 16, style: .continuous))
 
                     #if canImport(GoogleSignIn)
                     Button {
@@ -63,14 +74,17 @@ struct SignInView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .background(FondColors.surface)
                         .foregroundStyle(FondColors.text)
-                        .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
                     }
+                    .fondGlassInteractive(
+                        in: RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    )
                     #endif
                 }
                 .padding(.horizontal, 36)
                 .disabled(authManager.isLoading)
+                .opacity(appeared ? 1 : 0)
+                .offset(y: appeared ? 0 : 20)
 
                 // Loading / error
                 Group {
@@ -89,6 +103,11 @@ struct SignInView: View {
 
                 Spacer()
                     .frame(height: 48)
+            }
+        }
+        .onAppear {
+            withAnimation(.easeOut(duration: 0.8)) {
+                appeared = true
             }
         }
     }

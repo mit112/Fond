@@ -190,8 +190,8 @@ extension FondColors {
 // MARK: - Status → Color Mapping
 
 extension UserStatus {
-    /// The accent color associated with this status for UI reinforcement.
-    var accentColor: Color {
+    /// The color associated with this status for UI reinforcement.
+    var statusColor: Color {
         switch self {
         // Availability
         case .available:     return FondColors.statusAvailable

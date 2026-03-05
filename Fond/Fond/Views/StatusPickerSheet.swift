@@ -97,7 +97,7 @@ struct StatusPickerSheet: View {
             .padding(.vertical, 10)
         }
         .buttonStyle(.plain)
-        .fondGlass(
+        .fondGlassInteractive(
             in: RoundedRectangle(cornerRadius: 14, style: .continuous),
             tinted: isSelected
         )

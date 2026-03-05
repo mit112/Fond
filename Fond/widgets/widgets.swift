@@ -186,26 +186,36 @@ struct FondRectangularView: View {
 }
 
 /// systemSmall: Compact home screen view — emoji hero, name, status.
+/// Optimized for StandBy mode: large emoji readable from across the room.
 struct FondSmallView: View {
     let entry: FondEntry
     @Environment(\.widgetRenderingMode) var renderingMode
 
     var body: some View {
         if let name = entry.partnerName, let status = entry.status {
-            VStack(spacing: 8) {
+            VStack(spacing: 6) {
+                Spacer(minLength: 0)
+
                 // Emoji is the dominant visual — readable from across the room in StandBy
                 Text(status.emoji)
-                    .font(.system(size: 44))
+                    .font(.system(size: 52))
+                    .contentTransition(.numericText())
 
                 Text(name)
-                    .font(.title3.weight(.semibold))
+                    .font(.headline.weight(.semibold))
                     .foregroundStyle(textPrimary)
                     .lineLimit(1)
                     .minimumScaleFactor(0.7)
 
                 Text(status.displayName)
                     .font(.subheadline)
-                    .foregroundStyle(textSecondary)
+                    .foregroundStyle(
+                        renderingMode == .fullColor
+                            ? status.statusColor
+                            : textSecondary
+                    )
+
+                Spacer(minLength: 0)
 
                 if let lastUpdated = entry.lastUpdated {
                     Text(lastUpdated.shortTimeAgo)
@@ -219,6 +229,7 @@ struct FondSmallView: View {
                 Image(systemName: "heart")
                     .font(.largeTitle)
                     .foregroundStyle(textSecondary)
+                    .widgetAccentable()
                 Text("Not Connected")
                     .font(.caption)
                     .foregroundStyle(textSecondary)
@@ -227,7 +238,6 @@ struct FondSmallView: View {
         }
     }
 
-    // Adapt colors per rendering mode
     private var textPrimary: Color {
         renderingMode == .fullColor ? FondColors.text : .primary
     }
@@ -244,80 +254,67 @@ struct FondMediumView: View {
 
     var body: some View {
         if let name = entry.partnerName, let status = entry.status {
-            HStack(spacing: 16) {
-                Text(status.emoji)
-                    .font(.system(size: 48))
+            HStack(spacing: 14) {
+                // Left: emoji anchor
+                VStack {
+                    Text(status.emoji)
+                        .font(.system(size: 52))
+                        .contentTransition(.numericText())
+                    Spacer(minLength: 0)
+                }
 
-                VStack(alignment: .leading, spacing: 4) {
+                // Right: text stack
+                VStack(alignment: .leading, spacing: 3) {
                     Text(name)
-                        .font(.headline.weight(.semibold))
+                        .font(.headline.weight(.bold))
                         .foregroundStyle(textPrimary)
+                        .lineLimit(1)
 
                     Text(status.displayName)
                         .font(.subheadline)
                         .foregroundStyle(
                             renderingMode == .fullColor
-                                ? status.accentColor
+                                ? status.statusColor
                                 : textSecondary
                         )
 
                     if let message = entry.message, !message.isEmpty {
                         Text(message)
-                            .font(.body)
+                            .font(.callout)
                             .foregroundStyle(textPrimary.opacity(0.85))
                             .lineLimit(2)
-                            .padding(.top, 2)
+                            .padding(.top, 1)
                     }
 
-                    if let lastUpdated = entry.lastUpdated {
+                    Spacer(minLength: 0)
+
+                    // Footer: time ago or prompt teaser
+                    if let prompt = entry.promptText,
+                       entry.myPromptAnswer == nil {
+                        Text("💬 \(prompt)")
+                            .font(.caption2)
+                            .foregroundStyle(
+                                renderingMode == .fullColor
+                                    ? FondColors.amber
+                                    : textSecondary
+                            )
+                            .lineLimit(1)
+                    } else if let lastUpdated = entry.lastUpdated {
                         Text(lastUpdated.shortTimeAgo)
                             .font(.caption2)
                             .foregroundStyle(textSecondary.opacity(0.7))
-                    }
-
-                    // Daily prompt section
-                    if let prompt = entry.promptText {
-                        Divider().opacity(0.3)
-                        VStack(alignment: .leading, spacing: 3) {
-                            Text("💬 \(prompt)")
-                                .font(.caption2)
-                                .foregroundStyle(textSecondary)
-                                .lineLimit(1)
-                            if let myAns = entry.myPromptAnswer,
-                               let partnerAns = entry.partnerPromptAnswer {
-                                HStack(spacing: 8) {
-                                    Text("You: \(myAns)")
-                                        .font(.caption2)
-                                        .foregroundStyle(textPrimary.opacity(0.7))
-                                        .lineLimit(1)
-                                    Text("•")
-                                        .foregroundStyle(textSecondary.opacity(0.5))
-                                    Text("\(entry.partnerName ?? "Them"): \(partnerAns)")
-                                        .font(.caption2)
-                                        .foregroundStyle(textPrimary.opacity(0.7))
-                                        .lineLimit(1)
-                                }
-                            } else if entry.myPromptAnswer == nil {
-                                Text("Tap to answer")
-                                    .font(.caption2)
-                                    .foregroundStyle(renderingMode == .fullColor ? FondColors.amber : textSecondary)
-                            } else {
-                                Text("Waiting for \(entry.partnerName ?? "partner")...")
-                                    .font(.caption2)
-                                    .foregroundStyle(textSecondary.opacity(0.7))
-                            }
-                        }
                     }
                 }
 
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 4)
+            .padding(.horizontal, 2)
         } else {
             HStack(spacing: 12) {
                 Image(systemName: "heart")
                     .font(.largeTitle)
                     .foregroundStyle(textSecondary)
+                    .widgetAccentable()
                 VStack(alignment: .leading, spacing: 2) {
                     Text("Fond")
                         .font(.headline)

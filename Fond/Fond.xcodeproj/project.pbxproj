@@ -11,6 +11,7 @@
 		CC4DFDC12F4E04E400C2C8F6 /* GoogleSignInSwift in Frameworks */ = {isa = PBXBuildFile; productRef = CC4DFDC02F4E04E400C2C8F6 /* GoogleSignInSwift */; };
 		CC4DFDC52F4E139400C2C8F6 /* FirebaseFunctions in Frameworks */ = {isa = PBXBuildFile; productRef = CC4DFDC42F4E139400C2C8F6 /* FirebaseFunctions */; };
 		CC4DFDC72F4E13A000C2C8F6 /* FirebaseMessaging in Frameworks */ = {isa = PBXBuildFile; productRef = CC4DFDC62F4E13A000C2C8F6 /* FirebaseMessaging */; };
+		CCD39B6E2F58C929008213AA /* FondNotificationService.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = CCD39B672F58C929008213AA /* FondNotificationService.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
 		CCE06AC62F4DBADC00DCD7BE /* FirebaseAuth in Frameworks */ = {isa = PBXBuildFile; productRef = CCE06AC52F4DBADC00DCD7BE /* FirebaseAuth */; };
 		CCE06AC82F4DBADC00DCD7BE /* FirebaseFirestore in Frameworks */ = {isa = PBXBuildFile; productRef = CCE06AC72F4DBADC00DCD7BE /* FirebaseFirestore */; };
 		CCE06B232F4DBC4100DCD7BE /* watchkitapp Watch App.app in Embed Watch Content */ = {isa = PBXBuildFile; fileRef = CCE06B032F4DBC3F00DCD7BE /* watchkitapp Watch App.app */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
@@ -20,6 +21,13 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		CCD39B6C2F58C929008213AA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = CCE06A902F4DB3E600DCD7BE /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = CCD39B662F58C929008213AA;
+			remoteInfo = FondNotificationService;
+		};
 		CCE06AA62F4DB3E800DCD7BE /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = CCE06A902F4DB3E600DCD7BE /* Project object */;
@@ -71,6 +79,7 @@
 			dstPath = "";
 			dstSubfolderSpec = 13;
 			files = (
+				CCD39B6E2F58C929008213AA /* FondNotificationService.appex in Embed Foundation Extensions */,
 				CCE06B3F2F4DBCB800DCD7BE /* widgetsExtension.appex in Embed Foundation Extensions */,
 			);
 			name = "Embed Foundation Extensions";
@@ -90,6 +99,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		CCD39B672F58C929008213AA /* FondNotificationService.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = FondNotificationService.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		CCE06A982F4DB3E600DCD7BE /* Fond.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Fond.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		CCE06AA52F4DB3E800DCD7BE /* FondTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FondTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		CCE06AAF2F4DB3E800DCD7BE /* FondUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = FondUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -142,6 +152,29 @@
 			);
 			target = CCE06B182F4DBC4100DCD7BE /* watchkitapp Watch AppUITests */;
 		};
+		CC4DFDE02F4E500000C2C8F6 /* Exceptions for "watchkitapp Watch App" folder in "watchkitapp Watch App" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = CCE06B022F4DBC3F00DCD7BE /* watchkitapp Watch App */;
+		};
+		CCD39B722F58C929008213AA /* Exceptions for "FondNotificationService" folder in "FondNotificationService" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = CCD39B662F58C929008213AA /* FondNotificationService */;
+		};
+		CCD39B772F58C990008213AA /* Exceptions for "Fond" folder in "FondNotificationService" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Shared/Constants/FondConstants.swift,
+				Shared/Models/ConnectionState.swift,
+				Shared/Models/UserStatus.swift,
+			);
+			target = CCD39B662F58C929008213AA /* FondNotificationService */;
+		};
 		CCE06B402F4DBCB800DCD7BE /* Exceptions for "widgets" folder in "widgetsExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -184,16 +217,17 @@
 			);
 			target = CCE06B312F4DBCB600DCD7BE /* widgetsExtension */;
 		};
-		CC4DFDE02F4E500000C2C8F6 /* Exceptions for "watchkitapp Watch App" folder in "watchkitapp Watch App" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Info.plist,
-			);
-			target = CCE06B022F4DBC3F00DCD7BE /* watchkitapp Watch App */;
-		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
+		CCD39B682F58C929008213AA /* FondNotificationService */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				CCD39B722F58C929008213AA /* Exceptions for "FondNotificationService" folder in "FondNotificationService" target */,
+			);
+			path = FondNotificationService;
+			sourceTree = "<group>";
+		};
 		CCE06A9A2F4DB3E600DCD7BE /* Fond */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
@@ -204,6 +238,7 @@
 				CC4DFDD92F4E3F9400C2C8F6 /* Exceptions for "Fond" folder in "watchkitapp Watch AppTests" target */,
 				CC4DFDDA2F4E3F9400C2C8F6 /* Exceptions for "Fond" folder in "watchkitapp Watch AppUITests" target */,
 				CCE06B6A2F4DC6DE00DCD7BE /* Exceptions for "Fond" folder in "widgetsExtension" target */,
+				CCD39B772F58C990008213AA /* Exceptions for "Fond" folder in "FondNotificationService" target */,
 			);
 			path = Fond;
 			sourceTree = "<group>";
@@ -247,6 +282,13 @@
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		CCD39B642F58C929008213AA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CCE06A952F4DB3E600DCD7BE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -318,6 +360,7 @@
 				CCE06B122F4DBC4100DCD7BE /* watchkitapp Watch AppTests */,
 				CCE06B1C2F4DBC4100DCD7BE /* watchkitapp Watch AppUITests */,
 				CCE06B352F4DBCB600DCD7BE /* widgets */,
+				CCD39B682F58C929008213AA /* FondNotificationService */,
 				CCE06AD02F4DBAF500DCD7BE /* Frameworks */,
 				CCE06A992F4DB3E600DCD7BE /* Products */,
 			);
@@ -333,6 +376,7 @@
 				CCE06B0F2F4DBC4100DCD7BE /* watchkitapp Watch AppTests.xctest */,
 				CCE06B192F4DBC4100DCD7BE /* watchkitapp Watch AppUITests.xctest */,
 				CCE06B322F4DBCB600DCD7BE /* widgetsExtension.appex */,
+				CCD39B672F58C929008213AA /* FondNotificationService.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -349,6 +393,28 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
+		CCD39B662F58C929008213AA /* FondNotificationService */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = CCD39B6F2F58C929008213AA /* Build configuration list for PBXNativeTarget "FondNotificationService" */;
+			buildPhases = (
+				CCD39B632F58C929008213AA /* Sources */,
+				CCD39B642F58C929008213AA /* Frameworks */,
+				CCD39B652F58C929008213AA /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				CCD39B682F58C929008213AA /* FondNotificationService */,
+			);
+			name = FondNotificationService;
+			packageProductDependencies = (
+			);
+			productName = FondNotificationService;
+			productReference = CCD39B672F58C929008213AA /* FondNotificationService.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		CCE06A972F4DB3E600DCD7BE /* Fond */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = CCE06AB92F4DB3E800DCD7BE /* Build configuration list for PBXNativeTarget "Fond" */;
@@ -364,6 +430,7 @@
 			dependencies = (
 				CCE06B222F4DBC4100DCD7BE /* PBXTargetDependency */,
 				CCE06B3E2F4DBCB800DCD7BE /* PBXTargetDependency */,
+				CCD39B6D2F58C929008213AA /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				CCE06A9A2F4DB3E600DCD7BE /* Fond */,
@@ -527,6 +594,9 @@
 				LastSwiftUpdateCheck = 2600;
 				LastUpgradeCheck = 2600;
 				TargetAttributes = {
+					CCD39B662F58C929008213AA = {
+						CreatedOnToolsVersion = 26.0;
+					};
 					CCE06A972F4DB3E600DCD7BE = {
 						CreatedOnToolsVersion = 26.0;
 					};
@@ -579,11 +649,19 @@
 				CCE06B0E2F4DBC4100DCD7BE /* watchkitapp Watch AppTests */,
 				CCE06B182F4DBC4100DCD7BE /* watchkitapp Watch AppUITests */,
 				CCE06B312F4DBCB600DCD7BE /* widgetsExtension */,
+				CCD39B662F58C929008213AA /* FondNotificationService */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		CCD39B652F58C929008213AA /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CCE06A962F4DB3E600DCD7BE /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -636,6 +714,13 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		CCD39B632F58C929008213AA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		CCE06A942F4DB3E600DCD7BE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -688,6 +773,11 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		CCD39B6D2F58C929008213AA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = CCD39B662F58C929008213AA /* FondNotificationService */;
+			targetProxy = CCD39B6C2F58C929008213AA /* PBXContainerItemProxy */;
+		};
 		CCE06AA72F4DB3E800DCD7BE /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = CCE06A972F4DB3E600DCD7BE /* Fond */;
@@ -721,6 +811,69 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		CCD39B702F58C929008213AA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FondNotificationService/FondNotificationService.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3P89U4WZAB;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FondNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FondNotificationService;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mitsheth.Fond.FondNotificationService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		CCD39B712F58C929008213AA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_ENTITLEMENTS = FondNotificationService/FondNotificationService.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 3P89U4WZAB;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = FondNotificationService/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = FondNotificationService;
+				INFOPLIST_KEY_NSHumanReadableCopyright = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.mitsheth.Fond.FondNotificationService;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				STRING_CATALOG_GENERATE_SYMBOLS = YES;
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		CCE06AB72F4DB3E800DCD7BE /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1285,6 +1438,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		CCD39B6F2F58C929008213AA /* Build configuration list for PBXNativeTarget "FondNotificationService" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				CCD39B702F58C929008213AA /* Debug */,
+				CCD39B712F58C929008213AA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		CCE06A932F4DB3E600DCD7BE /* Build configuration list for PBXProject "Fond" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

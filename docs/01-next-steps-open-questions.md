@@ -1,6 +1,125 @@
 # Fond — Next Steps & Open Questions
 
-> Updated: February 24, 2026 — Post design system implementation
+> Updated: March 5, 2026 — iOS 26 Liquid Glass UI polish pass
+
+---
+
+## Where We Left Off (March 5, 2026)
+
+### iOS 26 Liquid Glass UI Polish — 4 Areas
+
+**Theme system upgrades (`FondTheme.swift`):**
+- `fondCard()` now uses `Glass.clear` on iOS 26 (subtle transparent card with refraction), falls back to surface+shadow on earlier versions.
+- New `fondGlassInteractive()` modifier — wraps `.regular.interactive()` for press feedback (scale bounce + shimmer) on tappable elements. Supports optional amber tint via `tinted: true`.
+- Three glass tiers: `fondGlassInteractive` (buttons/controls), `fondGlass` (selected segments, containers), `fondGlassPlain` (non-interactive secondary surfaces).
+
+**ConnectedView polish:**
+- Toolbar buttons (settings, history) → `fondGlassInteractive` for native press feedback on iOS 26.
+- Status indicator → `fondGlassInteractive` — the whole row responds to touch with glass bounce.
+- Send button → `fondGlassInteractive(tinted: true)` — interactive amber glass with press shimmer.
+
+**SignInView + onboarding refinement:**
+- Added breathing heart icon (`symbolEffect(.breathe)`) above app title for visual warmth.
+- Google sign-in button → `fondGlassInteractive` glass treatment (replacing plain surface fill).
+- Fade-in entrance animation on all elements — heart, title, tagline, buttons slide up on appear.
+- Larger corner radius on sign-in buttons (16pt, matching design system).
+
+**PairingView glass segmented control:**
+- Segment buttons now use `fondGlass(tinted: isSelected)` with opacity differentiation (selected: 1.0, unselected: 0.6).
+- Copy Code and Generate Code buttons → `fondGlassInteractive` for consistent press feedback.
+
+**DisplayNameView, KeySyncView, DailyPromptCard, StatusPickerSheet:**
+- All primary CTA buttons → `fondGlassInteractive` for consistent press feedback across the app.
+
+**Widget improvements:**
+- Small widget: emoji bumped to 52pt for StandBy readability, status text uses `status.statusColor` in fullColor mode, `widgetAccentable()` on heart icon for accented rendering, centered layout with Spacers for better vertical balance.
+- Medium widget: cleaner two-column layout (emoji top-aligned left, text stack right), unanswered prompt teaser in footer instead of cramped multi-line section, `widgetAccentable()` on empty-state heart.
+
+**watchOS companion:**
+- Nudge and heartbeat buttons → `fondGlassInteractive` with `RoundedRectangle` (replacing `buttonStyle(.borderedProminent)`).
+- Nudge button gets amber tint, heartbeat stays untinted for visual hierarchy.
+- Partner emoji bumped to 56pt, tighter vertical spacing.
+- Not-connected view uses mesh gradient background + `.symbolEffect(.breathe)` on heart icon.
+- Checkmark uses `.contentTransition(.symbolEffect(.replace))` for smooth animation.
+
+**Files modified:**
+- `Shared/Theme/FondTheme.swift` — New `fondGlassInteractive()`, updated `fondCard()` to use `Glass.clear`
+- `Views/ConnectedView.swift` — Interactive glass on toolbar, status indicator, send button
+- `Views/SignInView.swift` — Breathing heart, entrance animation, glass Google button
+- `Views/PairingView.swift` — Glass segments, interactive buttons
+- `Views/DisplayNameView.swift` — Interactive glass CTA
+- `Views/KeySyncView.swift` — Interactive glass retry button
+- `Views/StatusPickerSheet.swift` — Interactive glass status cells
+- `Views/DailyPromptCard.swift` — Interactive glass send button
+- `widgets/widgets.swift` — StandBy-optimized small widget, cleaner medium layout
+- `watchkitapp Watch App/Views/WatchConnectedView.swift` — Glass buttons, larger emoji
+- `watchkitapp Watch App/Views/WatchNotConnectedView.swift` — Mesh gradient bg, breathing heart
+
+**No new files created. No Cloud Function changes. No Firestore changes.**
+
+---
+
+## Where We Left Off (March 4, 2026)
+
+### Widget Pipeline Overhaul — NSE + Payload Decryption
+
+**Problem:** Widgets only updated when the app was opened. Silent pushes were unreliable (iOS throttles them aggressively when app is backgrounded/force-quit). Widget push and FCM push raced — widget read stale App Group data before the main app could decrypt and write fresh data.
+
+**Solution (4 changes, all implemented):**
+
+1. **`notifyPartner.ts` (deployed)** — Cloud Function now reads caller's encrypted Firestore fields and includes them in the FCM `data` payload. ALL push types are now alert + `mutable-content: 1` (required for NSE). Widget push delayed 500ms after FCM to avoid race condition. `unlinkConnection.ts` also updated with mutable-content.
+
+2. **`FondNotificationService/NotificationService.swift` (new target)** — Notification Service Extension intercepts every push, decrypts encrypted fields from the payload using shared Keychain symmetric key (CryptoKit AES-256-GCM, <1ms), writes plaintext to App Group UserDefaults, calls `WidgetCenter.shared.reloadAllTimelines()`. For message/nudge/heartbeat: shows decrypted content in notification. For status/promptAnswer: suppresses visible notification (empty title+body). For unlink: clears all App Group data. No Firebase SDK — lightweight, fast startup.
+
+3. **`PushManager.swift` (updated)** — `handlePushDataAsync()` now tries payload-first decryption (~1ms, no network) before falling back to Firestore fetch. New `decryptFromPayload()` method mirrors NSE logic. Firestore path kept as backward-compat fallback.
+
+4. **Silent→alert conversion** — All push types (including status, promptAnswer) now sent as alerts with mutable-content so NSE can intercept. Previously silent pushes were unreliable. NSE suppresses display for non-visible types.
+
+**New files:**
+- `FondNotificationService/NotificationService.swift` — NSE implementation
+- `FondNotificationService/FondNotificationService.entitlements` — App Group + Keychain
+- `FondNotificationService/Info.plist` — Extension config
+- `docs/04-widget-pipeline-fix-plan.md` — Full architecture plan with testing matrix
+
+**Modified files:**
+- `functions/src/notifyPartner.ts` — Encrypted payload forwarding, all-alert, delayed widget push
+- `functions/src/unlinkConnection.ts` — Added mutable-content for NSE
+- `Fond/Shared/Services/PushManager.swift` — Payload-first decryption
+
+**NSE target membership (shared files):** FondConstants.swift, UserStatus.swift, ConnectionState.swift
+
+**Status:** Cloud Functions deployed. NSE target created in Xcode with correct entitlements. **Needs real-device testing** — NSE does not run in Simulator.
+
+**Expected latency after fix:** <1.5s (push delivery ~1s + CryptoKit decrypt <1ms + widget reload).
+
+**Key reference:** `docs/04-widget-pipeline-fix-plan.md` has full diagnosis, architecture decisions, and Phase 5 testing checklist.
+
+---
+
+## Where We Left Off (Feb 25, 2026)
+
+### Widget Background Update Pipeline Fixed (Feb 25, 2026)
+
+**Problem:** Widgets only updated when the app was in the foreground. When the app was backgrounded or killed, partner updates wouldn't appear on the widget until the user opened the app.
+
+**Root cause:** Three broken links in the push → widget pipeline:
+1. `PushManager.handlePushData()` only wrote a timestamp to App Group — no actual partner data
+2. Real decrypted partner data only reached App Group via the Firestore listener in ConnectedView, which only runs when the app is on screen
+3. Main app was missing `aps-environment` entitlement and `UIBackgroundModes: remote-notification`, so background push wakeups weren't reliable
+4. Alert-type pushes (message, nudge, heartbeat) didn't include `content-available: 1`, so they didn't wake the app for background fetch
+
+**Fix (5 changes):**
+1. **`PushManager.swift`** — New `handlePushDataAsync()` method that fetches partner's Firestore doc, decrypts all fields, writes plaintext to App Group, syncs to Watch, and reloads widget timelines. This runs in the ~30s iOS gives for background push handling.
+2. **`FondApp.swift`** — `didReceiveRemoteNotification:fetchCompletionHandler:` now calls the async handler and awaits it before returning.
+3. **`notifyPartner.ts`** — Added `"content-available": 1` to alert-type pushes so they also wake the app for background data fetch.
+4. **`Fond.entitlements`** — Added `aps-environment` (development) entitlement to main app target.
+5. **`Info.plist`** — Added `UIBackgroundModes: remote-notification` so iOS wakes the app on silent/background pushes.
+
+**Expected latency after fix:** ~1.5 seconds (Cloud Function → push → iOS wakes app → Firestore fetch → decrypt → App Group write → widget reload).
+
+**Deploy required:** `cd functions && firebase deploy --only functions` to push the updated notifyPartner.
+
+Files modified: `PushManager.swift`, `FondApp.swift`, `Fond.entitlements`, `Info.plist`, `notifyPartner.ts`
 
 ---
 

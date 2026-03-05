@@ -182,7 +182,7 @@ struct ConnectedView: View {
                     .foregroundStyle(FondColors.text)
                     .frame(width: 40, height: 40)
             }
-            .fondGlassPlain(in: Circle())
+            .fondGlassInteractive(in: Circle())
 
             Spacer()
 
@@ -200,7 +200,7 @@ struct ConnectedView: View {
                     .foregroundStyle(FondColors.text)
                     .frame(width: 40, height: 40)
             }
-            .fondGlassPlain(in: Circle())
+            .fondGlassInteractive(in: Circle())
         }
     }
 
@@ -225,7 +225,7 @@ struct ConnectedView: View {
             if let status = partnerStatus {
                 Text(status.displayName)
                     .font(.title3)
-                    .foregroundStyle(status.accentColor)
+                    .foregroundStyle(status.statusColor)
             }
 
             // Partner message
@@ -316,9 +316,8 @@ struct ConnectedView: View {
             .padding(.vertical, 12)
         }
         .buttonStyle(.plain)
-        .fondGlass(
-            in: RoundedRectangle(cornerRadius: 16, style: .continuous),
-            tinted: false
+        .fondGlassInteractive(
+            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
         )
     }
 
@@ -376,7 +375,7 @@ struct ConnectedView: View {
             messageText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
             || isSending
         )
-        .fondGlass(in: Circle(), tinted: true)
+        .fondGlassInteractive(in: Circle(), tinted: true)
         .overlay {
             // Circular cooldown ring — depletes as cooldown expires
             if cooldownProgress > 0 {

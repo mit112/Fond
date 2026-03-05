@@ -150,7 +150,7 @@ struct DailyPromptCard: View {
                     answerText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     || promptManager.isSubmitting
                 )
-                .fondGlass(in: Circle(), tinted: true)
+                .fondGlassInteractive(in: Circle(), tinted: true)
             }
 
             if let error = promptManager.lastError {

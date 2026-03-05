@@ -132,33 +132,6 @@ enum UserStatus: String, Codable, CaseIterable, Sendable {
         }
     }
 
-    // MARK: - Accent Color
-
-    var accentColor: Color {
-        switch self {
-        // Availability
-        case .available:     return .green
-        case .busy:          return .red
-        case .away:          return .orange
-        case .sleeping:      return .indigo
-        // Mood
-        case .happy:         return .yellow
-        case .stressed:      return .red.opacity(0.8)
-        case .sad:           return .blue
-        case .excited:       return .pink
-        case .calm:          return .teal
-        // Activity
-        case .working:       return .blue
-        case .driving:       return .orange
-        case .eating:        return .brown
-        case .exercising:    return .green
-        // Love
-        case .thinkingOfYou: return FondColors.amber
-        case .missYou:       return FondColors.lavender
-        case .lovingYou:     return FondColors.rose
-        }
-    }
-
     // MARK: - Backward Compatibility
 
     /// Safe initializer for unknown raw values from partner's device.

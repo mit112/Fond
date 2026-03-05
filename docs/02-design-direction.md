@@ -1,7 +1,7 @@
 # Fond — Design Direction & Visual Language
 
 > Reference document for all UI/UX decisions across app, widgets, and watchOS.
-> Created: February 24, 2026
+> Created: February 24, 2026 | Updated: March 5, 2026 (Liquid Glass interactive tiers, widget sizes, watchOS glass buttons)
 
 ---
 
@@ -96,13 +96,24 @@ MeshGradient (3×3 grid)
 
 ### 2. Liquid Glass Interactions (iOS 26)
 
-All floating controls use Liquid Glass with warm amber tint:
+Three glass tiers, all defined in `FondTheme.swift` with `#available(iOS 26)` guards and `.ultraThinMaterial` fallbacks:
 
-- **Send button**: `.buttonStyle(.glassProminent)` with `.glassEffect(.regular.tint(fondAmber))` — the most prominent interactive element
-- **Status picker**: `GlassEffectContainer` — status options morph into/out of existence using `.glassEffectTransition(.materialize)`
-- **Toolbar items**: `.glassEffect()` default — back button, settings gear, history
-- **Sheets**: Let system Liquid Glass handle partial-height sheets naturally (remove any custom `presentationBackground`)
-- **Tab bar**: None — app is single-screen hub, no tabs needed
+| Tier | Modifier | Glass API | Usage |
+|---|---|---|---|
+| **Interactive** | `fondGlassInteractive(tinted:)` | `.regular.interactive()` or `.regular.tint(amber).interactive()` | All tappable buttons and controls. Press feedback: scale bounce + shimmer. |
+| **Static tinted** | `fondGlass(tinted:)` | `.regular.tint(amber)` or `.regular` | Selected segments, containers with state. No press animation. |
+| **Plain** | `fondGlassPlain()` | `.regular` | Non-interactive secondary surfaces (segmented control container). |
+| **Card** | `fondCard()` | `.clear` | Partner card, content cards. Subtle transparent with refraction. |
+
+**Where each is used:**
+- **Send button, toolbar icons, CTA buttons**: `fondGlassInteractive(tinted: true)` — amber-tinted interactive glass.
+- **Status indicator row, copy button, retry button**: `fondGlassInteractive()` — untinted interactive glass.
+- **Status picker cells**: `fondGlassInteractive(tinted: isSelected)` — selected gets amber tint.
+- **Pairing segment buttons**: `fondGlass(tinted: isSelected)` — non-interactive, selection shown by tint + opacity.
+- **Partner card, code display card**: `fondCard()` — `Glass.clear` for subtle refraction without chrome.
+- **Segmented control container**: `fondGlassPlain()` — background surface only.
+- **Sheets**: System Liquid Glass handles partial-height sheets naturally.
+- **Tab bar**: None — app is single-screen hub, no tabs needed.
 
 ### 3. SF Symbol Effects
 
@@ -245,9 +256,9 @@ Minimal. Glass-styled list:
 
 **accessoryRectangular**: Left-aligned stack — `"💚 Alex"` (headline), `"Available"` (subheadline), `"miss you"` (caption, truncated). Maximum information density.
 
-**systemSmall**: Centered layout — emoji (36pt), name (headline), status (caption). Glass container background on iOS 26. Not-connected: heart icon + "Not Connected."
+**systemSmall**: Centered layout — emoji (52pt, optimized for StandBy readability), name (headline), status with color in fullColor mode (caption). Spacers for vertical centering. Heart icon uses `widgetAccentable()` in not-connected state. Not-connected: heart icon + "Not Connected."
 
-**systemMedium**: Horizontal layout — emoji (44pt) left, text stack right (name, status, message 2-line, timestamp). This is the flagship widget — room for the full experience. Not-connected: heart icon + "Open app to connect."
+**systemMedium**: Two-column horizontal layout — emoji (52pt, top-aligned) left, text stack right (name bold headline, status with color, message 2-line callout, footer with prompt teaser or timestamp). This is the flagship widget. Empty-state heart uses `widgetAccentable()`. Not-connected: heart icon + "Open app to connect."
 
 ### watchOS Smart Stack (Relevant Widget)
 
@@ -264,10 +275,11 @@ Uses `RelevanceEntriesProvider`. Surfaces when partner's status changes. Same la
 - SF Symbol effects throughout
 
 ### watchOS 26
-- Simplified connected view (read-only for v1)
-- Glass button for quick status change (future: Control)
+- Connected view with partner display (56pt emoji, name, status, message) + bidirectional nudge/heartbeat buttons
+- Glass buttons via `fondGlassInteractive` — nudge gets amber tint, heartbeat untinted
 - Smaller type scale (watch-appropriate)
-- No mesh gradient (performance)
+- Static `LinearGradient` background (no animated mesh gradient — battery)
+- Not-connected view uses mesh gradient + breathing heart symbol effect
 
 ### macOS Tahoe
 - Sidebar-free single-window app

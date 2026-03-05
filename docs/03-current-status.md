@@ -1,6 +1,6 @@
 # Fond — Current Status
 
-> Updated: February 24, 2026 — End of Phase 7
+> Updated: March 5, 2026 — iOS 26 Liquid Glass UI polish pass
 
 ---
 
@@ -9,9 +9,10 @@
 | Target | Status |
 |---|---|
 | **Fond** (iOS/iPadOS/macOS) | ✅ BUILD SUCCEEDED |
+| **FondNotificationService** (NSE) | ✅ Target created, needs real-device test |
 | **watchkitapp Watch App** (watchOS) | ✅ BUILD SUCCEEDED |
 | **widgetsExtension** (widget) | ✅ BUILD SUCCEEDED |
-| **Cloud Functions** (TypeScript) | ✅ Compiled, 0 errors |
+| **Cloud Functions** (TypeScript) | ✅ Deployed March 4, 2026 |
 
 ---
 
@@ -27,6 +28,8 @@
 | 5: Widgets | ✅ | 5 widget families (inline, circular, rectangular, small, medium), reads App Group |
 | 6: Unlink | ✅ | Cloud Function call, key deletion, widget cleanup |
 | 7: Polish | ✅ | Rate limiting, WidgetKit reloads, error handling, display name editing |
+| 8: Widget Pipeline Fix | 🟡 | NSE target + payload decryption. Cloud Functions deployed. Needs real-device test. |
+| 9: iOS 26 Glass Polish | ✅ | Interactive glass on all buttons, clear glass cards, widget StandBy optimization, watchOS glass buttons |
 
 ---
 
@@ -59,18 +62,28 @@ Views/HistoryView.swift                 — Decrypted history feed
 Views/SettingsView.swift                — Name edit, disconnect, sign out
 ```
 
-### Widget Extension (2 files)
+### Widget Extension (3 files)
 ```
 widgets/widgets.swift                   — FondWidget + 5 family views + timeline provider
 widgets/widgetsBundle.swift             — Widget bundle entry point
+widgets/FondWidgetPushHandler.swift     — WidgetKit push token capture
 ```
 
-### Cloud Functions (4 files)
+### Notification Service Extension (3 files) — NEW
+```
+FondNotificationService/NotificationService.swift          — Intercepts push, decrypts payload, writes App Group, reloads widgets
+FondNotificationService/FondNotificationService.entitlements — App Group + Keychain sharing
+FondNotificationService/Info.plist                         — NSE extension point config
+```
+
+### Cloud Functions (5 files)
 ```
 functions/src/index.ts                  — Entry point, exports all functions
-functions/src/notifyPartner.ts          — Push fan-out to partner devices
+functions/src/notifyPartner.ts          — Push fan-out + encrypted payload forwarding
 functions/src/expireCodes.ts            — Scheduled cleanup of expired codes
 functions/src/unlinkConnection.ts       — Atomic disconnect + push
+functions/src/apnsHelper.ts             — Direct APNs widget push (HTTP/2 + JWT)
+functions/src/linkUsers.ts              — Atomic code claim + user linking
 ```
 
 ### Firestore
@@ -80,14 +93,14 @@ firestore.rules                         — Production security rules
 
 ---
 
-## Manual Steps Still Needed Before Testing
+## What's Next
 
-1. **Add SPM packages** to Fond target: `FirebaseMessaging`, `FirebaseFunctions`, `GoogleSignIn-iOS`
-2. **Add Google URL scheme**: Fond target → Info → URL Types → REVERSED_CLIENT_ID
-3. **Create APNs Key** (.p8) → upload to Firebase Console
-4. **Deploy Cloud Functions**: `cd /Users/mitsheth/Documents/Fond/functions && firebase deploy --only functions`
-5. **Deploy Firestore rules**: `cd /Users/mitsheth/Documents/Fond && firebase deploy --only firestore:rules`
-6. **Add new View files to Fond target** in Xcode (Views/ folder)
+1. **Real-device test of widget pipeline** — NSE only runs on physical hardware, not Simulator. Test: partner sends status → widget updates within 1-2s with app backgrounded/force-quit.
+2. **Test unlink flow** — NSE now handles unlink push (clears App Group). Verify widget shows "Not Connected" when partner unlinks.
+3. **Test key sync** — Verify iCloud Keychain sync works on a second real device. KeySyncView should resolve within seconds.
+4. **Device test glass effects** — Verify `fondGlassInteractive` press feedback (scale + shimmer) looks correct on real hardware. Simulator approximates but doesn't show full glass refraction.
+5. **Widget tutorial in onboarding** — Guide users to add widgets after pairing.
+6. **Build and test on device** — Full end-to-end run on physical iPhone + Apple Watch.
 
 ---
 

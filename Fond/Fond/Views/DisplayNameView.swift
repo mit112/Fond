@@ -99,7 +99,7 @@ struct DisplayNameView: View {
                     .frame(height: 52)
                 }
                 .disabled(!isValid || isSaving)
-                .fondGlass(
+                .fondGlassInteractive(
                     in: RoundedRectangle(cornerRadius: 14, style: .continuous),
                     tinted: true
                 )
