@@ -588,20 +588,4 @@ final class FirebaseManager: Sendable {
     }
 }
 
-// MARK: - Errors
-
-enum PairingError: LocalizedError {
-    case invalidCode
-    case cannotPairWithSelf
-    case alreadyConnected
-
-    var errorDescription: String? {
-        switch self {
-        case .invalidCode: return "Invalid or expired code. Ask your partner for a new one."
-        case .cannotPairWithSelf: return "You can't pair with yourself."
-        case .alreadyConnected: return "You're already connected to someone."
-        }
-    }
-}
-
 #endif

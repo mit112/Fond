@@ -43,14 +43,6 @@ final class KeychainManager: Sendable {
 
     // MARK: - Delete
 
-    func deletePrivateKey() throws {
-        try delete(tag: Tag.privateKey)
-    }
-
-    func deleteSymmetricKey() throws {
-        try delete(tag: Tag.symmetricKey)
-    }
-
     /// Deletes all Fond keys from keychain (used on unlink).
     func deleteAllKeys() throws {
         try? delete(tag: Tag.privateKey)

@@ -16,13 +16,4 @@ struct DailyPrompt: Codable, Identifiable, Sendable {
     let id: String
     let text: String
     let category: String
-
-    /// Prompt categories for variety labeling.
-    enum Category: String, Codable, Sendable {
-        case light      // Fun, lighthearted
-        case reflective // Deeper, thoughtful
-        case playful    // Quick, silly
-        case future     // Forward-looking
-        case appreciate // Gratitude-focused
-    }
 }

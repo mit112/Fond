@@ -372,27 +372,6 @@ final class PushManager: NSObject {
     }
 
     // MARK: - Handle Incoming Push (Legacy sync — used when app is foregrounded)
-
-    /// Synchronous handler for when the app is already active in the foreground.
-    /// The Firestore listener in ConnectedView handles the real-time update;
-    /// this just ensures widgets also refresh.
-    func handlePushData(_ userInfo: [AnyHashable: Any]) {
-        guard let type = userInfo["type"] as? String else { return }
-
-        switch type {
-        case "status", "message", "nudge", "heartbeat", "promptAnswer":
-            // Firestore listener in ConnectedView will handle the data update.
-            // Just trigger a widget reload as a safety net.
-            WidgetCenter.shared.reloadAllTimelines()
-        case "unlink":
-            try? KeychainManager.shared.deleteAllKeys()
-            clearAppGroup()
-            WidgetCenter.shared.reloadAllTimelines()
-        default:
-            break
-        }
-    }
-
     // MARK: - App Group Cleanup
 
     private func clearAppGroup() {

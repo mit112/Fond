@@ -141,15 +141,6 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         return R * c
     }
 
-    /// Contextual distance string for display.
-    static func contextualDistance(_ miles: Double) -> String {
-        if miles < 0.2 { return "Right here 💛" }
-        if miles < 1 { return String(format: "%.1f mi apart", miles) }
-        if miles < 30 { return "\(Int(miles)) mi — a quick drive" }
-        if miles < 300 { return "\(Int(miles)) mi — \(Int(miles / 60))hr drive" }
-        return "\(Int(miles)) mi — \(String(format: "%.1f", miles / 500))hr flight"
-    }
-
     /// Contextual distance string using locale-appropriate units.
     static func formattedDistance(_ miles: Double) -> String {
         let usesMetric = Locale.current.measurementSystem == .metric

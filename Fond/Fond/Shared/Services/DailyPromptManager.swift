@@ -32,7 +32,7 @@ final class DailyPromptManager {
     // MARK: - State
 
     /// All bundled prompts.
-    private(set) var allPrompts: [DailyPrompt] = []
+    private var allPrompts: [DailyPrompt] = []
 
     /// Today's prompt (computed by UTC day).
     private(set) var todaysPrompt: DailyPrompt?

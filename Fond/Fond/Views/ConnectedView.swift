@@ -66,7 +66,6 @@ struct ConnectedView: View {
     @State private var lastLocationCapture: Date = .distantPast
     @State private var distanceMiles: Double?
     @State private var partnerCity: String?
-    @State private var myCity: String?
 
     // MARK: - Environment
 

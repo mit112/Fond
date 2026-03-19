@@ -122,7 +122,7 @@ function derToRaw(derSig: Buffer): Buffer {
  * @param {boolean} sandbox Use sandbox APNs host
  * @return {Promise<boolean>} true if accepted by APNs
  */
-export async function sendWidgetPush(
+async function sendWidgetPush(
   deviceToken: string,
   keyP8: string,
   keyId: string,
