@@ -23,15 +23,24 @@ struct FondRelevanceUpdater {
         let defaults = UserDefaults(suiteName: FondConstants.appGroupID)
         let calendar = Calendar.current
 
+        // If not connected (signed out, unpaired, etc.), clear all relevance entries
+        let stateRaw = defaults?.string(forKey: FondConstants.connectionStateKey)
+        let connectionState = stateRaw.flatMap { ConnectionState(rawValue: $0) }
+        if connectionState != .connected {
+            try? await RelevantIntentManager.shared.updateRelevantIntents([])
+            logger.debug("Cleared relevance entries (state: \(stateRaw ?? "nil"))")
+            return
+        }
+
         var relevantIntents: [RelevantIntent] = []
 
         // MARK: - FondWidget relevance
 
         let fondConfig = FondWidgetConfigIntent()
 
-        // Boost for 30 minutes after partner's last update
+        // Boost after partner's last update
         if let lastUpdated = defaults?.object(forKey: FondConstants.partnerLastUpdatedKey) as? Date {
-            let boostEnd = lastUpdated.addingTimeInterval(30 * 60)
+            let boostEnd = lastUpdated.addingTimeInterval(Double(FondConstants.relevancePartnerBoostMinutes) * 60)
             if boostEnd > .now {
                 relevantIntents.append(RelevantIntent(
                     fondConfig,
@@ -41,9 +50,10 @@ struct FondRelevanceUpdater {
             }
         }
 
-        // Morning check-in (8 AM)
-        if let morningStart = calendar.date(bySettingHour: 7, minute: 45, second: 0, of: .now),
-           let morningEnd = calendar.date(bySettingHour: 8, minute: 30, second: 0, of: .now) {
+        // Morning check-in
+        if let morningStart = calendar.date(bySettingHour: FondConstants.relevanceMorningHour - 1, minute: 60 - FondConstants.relevanceWindowLeadMinutes, second: 0, of: .now),
+           let morningEnd = calendar.date(bySettingHour: FondConstants.relevanceMorningHour, minute: FondConstants.relevanceWindowTrailMinutes, second: 0, of: .now),
+           morningEnd > .now {
             relevantIntents.append(RelevantIntent(
                 fondConfig,
                 widgetKind: "FondWidget",
@@ -51,9 +61,10 @@ struct FondRelevanceUpdater {
             ))
         }
 
-        // Evening check-in (8 PM)
-        if let eveningStart = calendar.date(bySettingHour: 19, minute: 45, second: 0, of: .now),
-           let eveningEnd = calendar.date(bySettingHour: 20, minute: 30, second: 0, of: .now) {
+        // Evening check-in
+        if let eveningStart = calendar.date(bySettingHour: FondConstants.relevanceEveningHour - 1, minute: 60 - FondConstants.relevanceWindowLeadMinutes, second: 0, of: .now),
+           let eveningEnd = calendar.date(bySettingHour: FondConstants.relevanceEveningHour, minute: FondConstants.relevanceWindowTrailMinutes, second: 0, of: .now),
+           eveningEnd > .now {
             relevantIntents.append(RelevantIntent(
                 fondConfig,
                 widgetKind: "FondWidget",
@@ -67,10 +78,10 @@ struct FondRelevanceUpdater {
 
         // Midnight -- day count changes
         let tomorrow = calendar.startOfDay(
-            for: calendar.date(byAdding: .day, value: 1, to: .now)!
+            for: calendar.date(byAdding: .day, value: 1, to: .now) ?? .now.addingTimeInterval(86400)
         )
-        let midnightStart = tomorrow.addingTimeInterval(-15 * 60)
-        let midnightEnd = tomorrow.addingTimeInterval(15 * 60)
+        let midnightStart = tomorrow.addingTimeInterval(Double(-FondConstants.relevanceMidnightWindowMinutes) * 60)
+        let midnightEnd = tomorrow.addingTimeInterval(Double(FondConstants.relevanceMidnightWindowMinutes) * 60)
         relevantIntents.append(RelevantIntent(
             dateConfig,
             widgetKind: "FondDateWidget",
@@ -94,9 +105,10 @@ struct FondRelevanceUpdater {
 
         let distanceConfig = FondDistanceWidgetConfigIntent()
 
-        // Morning commute (8 AM)
-        if let morningStart = calendar.date(bySettingHour: 7, minute: 45, second: 0, of: .now),
-           let morningEnd = calendar.date(bySettingHour: 8, minute: 30, second: 0, of: .now) {
+        // Morning commute
+        if let morningStart = calendar.date(bySettingHour: FondConstants.relevanceCommuteAMHour - 1, minute: 60 - FondConstants.relevanceWindowLeadMinutes, second: 0, of: .now),
+           let morningEnd = calendar.date(bySettingHour: FondConstants.relevanceCommuteAMHour, minute: FondConstants.relevanceWindowTrailMinutes, second: 0, of: .now),
+           morningEnd > .now {
             relevantIntents.append(RelevantIntent(
                 distanceConfig,
                 widgetKind: "FondDistanceWidget",
@@ -104,9 +116,10 @@ struct FondRelevanceUpdater {
             ))
         }
 
-        // Evening commute (6 PM)
-        if let eveningStart = calendar.date(bySettingHour: 17, minute: 45, second: 0, of: .now),
-           let eveningEnd = calendar.date(bySettingHour: 18, minute: 30, second: 0, of: .now) {
+        // Evening commute
+        if let eveningStart = calendar.date(bySettingHour: FondConstants.relevanceCommutePMHour - 1, minute: 60 - FondConstants.relevanceWindowLeadMinutes, second: 0, of: .now),
+           let eveningEnd = calendar.date(bySettingHour: FondConstants.relevanceCommutePMHour, minute: FondConstants.relevanceWindowTrailMinutes, second: 0, of: .now),
+           eveningEnd > .now {
             relevantIntents.append(RelevantIntent(
                 distanceConfig,
                 widgetKind: "FondDistanceWidget",

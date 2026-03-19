@@ -114,18 +114,20 @@ struct FondDistanceTimelineProvider: AppIntentTimelineProvider {
         let config = FondDistanceWidgetConfigIntent()
         let calendar = Calendar.current
 
-        // Daily relevance during morning commute (8 AM)
-        if let morningStart = calendar.date(bySettingHour: 7, minute: 45, second: 0, of: .now),
-           let morningEnd = calendar.date(bySettingHour: 8, minute: 30, second: 0, of: .now) {
+        // Daily relevance during morning commute
+        if let morningStart = calendar.date(bySettingHour: FondConstants.relevanceCommuteAMHour - 1, minute: 60 - FondConstants.relevanceWindowLeadMinutes, second: 0, of: .now),
+           let morningEnd = calendar.date(bySettingHour: FondConstants.relevanceCommuteAMHour, minute: FondConstants.relevanceWindowTrailMinutes, second: 0, of: .now),
+           morningEnd > .now {
             attributes.append(WidgetRelevanceAttribute(
                 configuration: config,
                 context: .date(range: morningStart...morningEnd, kind: .scheduled)
             ))
         }
 
-        // Daily relevance during evening commute (6 PM)
-        if let eveningStart = calendar.date(bySettingHour: 17, minute: 45, second: 0, of: .now),
-           let eveningEnd = calendar.date(bySettingHour: 18, minute: 30, second: 0, of: .now) {
+        // Daily relevance during evening commute
+        if let eveningStart = calendar.date(bySettingHour: FondConstants.relevanceCommutePMHour - 1, minute: 60 - FondConstants.relevanceWindowLeadMinutes, second: 0, of: .now),
+           let eveningEnd = calendar.date(bySettingHour: FondConstants.relevanceCommutePMHour, minute: FondConstants.relevanceWindowTrailMinutes, second: 0, of: .now),
+           eveningEnd > .now {
             attributes.append(WidgetRelevanceAttribute(
                 configuration: config,
                 context: .date(range: eveningStart...eveningEnd, kind: .scheduled)

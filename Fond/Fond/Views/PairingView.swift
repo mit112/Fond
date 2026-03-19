@@ -209,12 +209,13 @@ struct GenerateCodeView: View {
         isPolling = true
         pollTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
             Task { @MainActor in
+                guard self.isPolling else { return }
                 if let partnerUid = try? await FirebaseManager.shared.checkConnection(uid: uid) {
                     let _ = try? await FirebaseManager.shared.completeKeyExchange(partnerUid: partnerUid)
                     pollTimer?.invalidate()
-                    isPolling = false
+                    self.isPolling = false
                     FondHaptics.pairingSuccess()
-                    onConnected()
+                    self.onConnected()
                 }
             }
         }

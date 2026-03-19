@@ -132,7 +132,7 @@ final class PushManager: NSObject {
         switch type {
         case "status", "message", "nudge", "heartbeat", "promptAnswer":
             // Fast path: try to decrypt directly from push payload (~1ms)
-            if decryptFromPayload(userInfo) {
+            if await decryptFromPayload(userInfo) {
                 logger.info("Fast path: decrypted from push payload")
                 return .newData
             }
@@ -143,7 +143,7 @@ final class PushManager: NSObject {
             try? KeychainManager.shared.deleteAllKeys()
             clearAppGroup()
             WidgetCenter.shared.reloadAllTimelines()
-            Task { await FondRelevanceUpdater.update() }
+            await FondRelevanceUpdater.update()
             return .newData
         default:
             return .noData
@@ -159,7 +159,7 @@ final class PushManager: NSObject {
     /// The notifyPartner Cloud Function includes the caller's encrypted
     /// fields in the FCM data payload. FCM delivers these as top-level
     /// keys in userInfo (not nested under "data").
-    private func decryptFromPayload(_ userInfo: [AnyHashable: Any]) -> Bool {
+    private func decryptFromPayload(_ userInfo: [AnyHashable: Any]) async -> Bool {
         // Check if payload contains encrypted fields (new Cloud Function format)
         guard userInfo["encryptedName"] is String ||
               userInfo["encryptedStatus"] is String else {
@@ -219,7 +219,7 @@ final class PushManager: NSObject {
         }
 
         // Write to App Group (this also calls reloadAllTimelines)
-        FirebaseManager.shared.writePartnerDataToAppGroup(
+        await FirebaseManager.shared.writePartnerDataToAppGroup(
             name: name,
             status: status,
             message: message,
@@ -339,7 +339,7 @@ final class PushManager: NSObject {
             }
 
             // 4. Write decrypted data to App Group (this also calls reloadAllTimelines)
-            FirebaseManager.shared.writePartnerDataToAppGroup(
+            await FirebaseManager.shared.writePartnerDataToAppGroup(
                 name: name,
                 status: status,
                 message: message,
@@ -381,6 +381,9 @@ final class PushManager: NSObject {
         defaults.removeObject(forKey: FondConstants.partnerStatusKey)
         defaults.removeObject(forKey: FondConstants.partnerMessageKey)
         defaults.removeObject(forKey: FondConstants.partnerLastUpdatedKey)
+        defaults.removeObject(forKey: FondConstants.anniversaryDateKey)
+        defaults.removeObject(forKey: FondConstants.countdownDateKey)
+        defaults.removeObject(forKey: FondConstants.countdownLabelKey)
         defaults.removeObject(forKey: FondConstants.partnerHeartbeatKey)
         defaults.removeObject(forKey: FondConstants.partnerHeartbeatTimeKey)
         defaults.removeObject(forKey: FondConstants.distanceMilesKey)

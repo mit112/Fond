@@ -495,7 +495,7 @@ final class FirebaseManager: Sendable {
 
         // Local cleanup
         try KeychainManager.shared.deleteAllKeys()
-        clearAppGroup()
+        await clearAppGroup()
 
         // Sync disconnect to Apple Watch
         #if os(iOS)
@@ -504,7 +504,7 @@ final class FirebaseManager: Sendable {
     }
 
     /// Clears all partner data from App Group UserDefaults.
-    private func clearAppGroup() {
+    private func clearAppGroup() async {
         guard let defaults = UserDefaults(suiteName: FondConstants.appGroupID) else { return }
         defaults.removeObject(forKey: FondConstants.partnerNameKey)
         defaults.removeObject(forKey: FondConstants.partnerStatusKey)
@@ -527,7 +527,7 @@ final class FirebaseManager: Sendable {
         WidgetCenter.shared.reloadAllTimelines()
 
         // Clear Smart Stack relevance entries
-        Task { await FondRelevanceUpdater.update() }
+        await FondRelevanceUpdater.update()
     }
 
     // MARK: - Push Notification (Cloud Function)
@@ -557,7 +557,7 @@ final class FirebaseManager: Sendable {
         heartbeatBpm: Int? = nil,
         distanceMiles: Double? = nil,
         partnerCity: String? = nil
-    ) {
+    ) async {
         guard let defaults = UserDefaults(suiteName: FondConstants.appGroupID) else { return }
         defaults.set(name, forKey: FondConstants.partnerNameKey)
         defaults.set(status?.rawValue, forKey: FondConstants.partnerStatusKey)
@@ -581,7 +581,7 @@ final class FirebaseManager: Sendable {
         WidgetCenter.shared.reloadAllTimelines()
 
         // Update Smart Stack relevance with latest partner timestamps
-        Task { await FondRelevanceUpdater.update() }
+        await FondRelevanceUpdater.update()
     }
 
     // MARK: - Helpers

@@ -71,4 +71,23 @@ enum FondConstants {
     // MARK: - App Group Keys: Nudge
 
     static let lastNudgeTimeKey = "lastNudgeTime"
+
+    // MARK: - Relevance Windows
+
+    /// Center hour for morning check-in / commute AM window (8 AM).
+    static let relevanceMorningHour = 8
+    /// Center hour for evening check-in window (8 PM).
+    static let relevanceEveningHour = 20
+    /// Center hour for AM commute window (same as morning for distance widget).
+    static let relevanceCommuteAMHour = 8
+    /// Center hour for PM commute window (6 PM).
+    static let relevanceCommutePMHour = 18
+    /// Minutes before/after midnight to boost date widget relevance.
+    static let relevanceMidnightWindowMinutes = 15
+    /// Minutes before the center hour that a relevance window opens.
+    static let relevanceWindowLeadMinutes = 15
+    /// Minutes after the center hour that a relevance window closes.
+    static let relevanceWindowTrailMinutes = 30
+    /// Minutes to boost relevance after a partner update arrives.
+    static let relevancePartnerBoostMinutes = 30
 }

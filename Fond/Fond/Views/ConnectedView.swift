@@ -582,15 +582,17 @@ struct ConnectedView: View {
             #endif
 
             // Write to App Group so widgets can read
-            FirebaseManager.shared.writePartnerDataToAppGroup(
-                name: name,
-                status: status,
-                message: message,
-                lastUpdated: update.lastUpdated,
-                heartbeatBpm: heartbeatBpm,
-                distanceMiles: computedDistance,
-                partnerCity: computedCity
-            )
+            Task {
+                await FirebaseManager.shared.writePartnerDataToAppGroup(
+                    name: name,
+                    status: status,
+                    message: message,
+                    lastUpdated: update.lastUpdated,
+                    heartbeatBpm: heartbeatBpm,
+                    distanceMiles: computedDistance,
+                    partnerCity: computedCity
+                )
+            }
 
             // Sync to Apple Watch
             WatchSyncManager.shared.syncPartnerData(
@@ -607,9 +609,6 @@ struct ConnectedView: View {
 
             // Trigger widget refresh
             WidgetCenter.shared.reloadAllTimelines()
-
-            // Update Smart Stack relevance
-            Task { await FondRelevanceUpdater.update() }
         }
     }
 
@@ -627,7 +626,7 @@ struct ConnectedView: View {
                 defaults.removeObject(forKey: FondConstants.anniversaryDateKey)
             }
             WidgetCenter.shared.reloadAllTimelines()
-            Task { await FondRelevanceUpdater.update() }
+            Task { await FondRelevanceUpdater.update() }  // non-async closure context
         }
     }
 

@@ -215,10 +215,11 @@ struct SettingsView: View {
         }
 
         WidgetCenter.shared.reloadAllTimelines()
-        Task { await FondRelevanceUpdater.update() }
 
-        // Sync to Firestore so partner sees the same data
+        // Update relevance + sync to Firestore so partner sees the same data
         Task {
+            await FondRelevanceUpdater.update()
+
             do {
                 // Anniversary → connection doc (shared)
                 if let cid = connectionId {
@@ -272,7 +273,7 @@ struct SettingsView: View {
             )
         }
         WidgetCenter.shared.reloadAllTimelines()
-        Task { await FondRelevanceUpdater.update() }
+        Task { await FondRelevanceUpdater.update() }  // sync context requires Task wrapper
         dismiss()
     }
 
@@ -318,6 +319,6 @@ struct SettingsView: View {
             forKey: FondConstants.connectionStateKey
         )
         WidgetCenter.shared.reloadAllTimelines()
-        Task { await FondRelevanceUpdater.update() }
+        Task { await FondRelevanceUpdater.update() }  // sync context requires Task wrapper
     }
 }

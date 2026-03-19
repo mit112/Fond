@@ -82,7 +82,7 @@ struct FondDateTimelineProvider: AppIntentTimelineProvider {
         let entry = readEntry()
         // Refresh at midnight so the day count updates
         let midnight = Calendar.current.startOfDay(
-            for: Calendar.current.date(byAdding: .day, value: 1, to: .now)!
+            for: Calendar.current.date(byAdding: .day, value: 1, to: .now) ?? .now.addingTimeInterval(86400)
         )
         return Timeline(entries: [entry], policy: .after(midnight))
     }
@@ -94,10 +94,10 @@ struct FondDateTimelineProvider: AppIntentTimelineProvider {
 
         // Boost around midnight when the day count changes
         let tomorrow = calendar.startOfDay(
-            for: calendar.date(byAdding: .day, value: 1, to: .now)!
+            for: calendar.date(byAdding: .day, value: 1, to: .now) ?? .now.addingTimeInterval(86400)
         )
-        let midnightStart = tomorrow.addingTimeInterval(-15 * 60) // 11:45 PM
-        let midnightEnd = tomorrow.addingTimeInterval(15 * 60)    // 12:15 AM
+        let midnightStart = tomorrow.addingTimeInterval(Double(-FondConstants.relevanceMidnightWindowMinutes) * 60)
+        let midnightEnd = tomorrow.addingTimeInterval(Double(FondConstants.relevanceMidnightWindowMinutes) * 60)
         attributes.append(WidgetRelevanceAttribute(
             configuration: config,
             context: .date(range: midnightStart...midnightEnd, kind: .scheduled)
