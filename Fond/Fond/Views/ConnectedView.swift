@@ -607,6 +607,9 @@ struct ConnectedView: View {
 
             // Trigger widget refresh
             WidgetCenter.shared.reloadAllTimelines()
+
+            // Update Smart Stack relevance
+            Task { await FondRelevanceUpdater.update() }
         }
     }
 
@@ -624,6 +627,7 @@ struct ConnectedView: View {
                 defaults.removeObject(forKey: FondConstants.anniversaryDateKey)
             }
             WidgetCenter.shared.reloadAllTimelines()
+            Task { await FondRelevanceUpdater.update() }
         }
     }
 

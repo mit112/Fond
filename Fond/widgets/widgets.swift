@@ -82,6 +82,44 @@ struct FondTimelineProvider: AppIntentTimelineProvider {
         return Timeline(entries: [entry], policy: .after(nextUpdate))
     }
 
+    func relevance() async -> WidgetRelevance<Intent> {
+        var attributes: [WidgetRelevanceAttribute<Intent>] = []
+        let config = FondWidgetConfigIntent()
+
+        // Boost for 30 minutes after partner's last status/message update
+        if let defaults = UserDefaults(suiteName: FondConstants.appGroupID),
+           let lastUpdated = defaults.object(forKey: FondConstants.partnerLastUpdatedKey) as? Date {
+            let boostEnd = lastUpdated.addingTimeInterval(30 * 60)
+            if boostEnd > .now {
+                attributes.append(WidgetRelevanceAttribute(
+                    configuration: config,
+                    context: .date(range: lastUpdated...boostEnd, kind: .scheduled)
+                ))
+            }
+        }
+
+        // Daily relevance around 8 AM (morning check-in)
+        let calendar = Calendar.current
+        if let morningStart = calendar.date(bySettingHour: 7, minute: 45, second: 0, of: .now),
+           let morningEnd = calendar.date(bySettingHour: 8, minute: 30, second: 0, of: .now) {
+            attributes.append(WidgetRelevanceAttribute(
+                configuration: config,
+                context: .date(range: morningStart...morningEnd, kind: .scheduled)
+            ))
+        }
+
+        // Daily relevance around 8 PM (evening check-in)
+        if let eveningStart = calendar.date(bySettingHour: 19, minute: 45, second: 0, of: .now),
+           let eveningEnd = calendar.date(bySettingHour: 20, minute: 30, second: 0, of: .now) {
+            attributes.append(WidgetRelevanceAttribute(
+                configuration: config,
+                context: .date(range: eveningStart...eveningEnd, kind: .scheduled)
+            ))
+        }
+
+        return WidgetRelevance(attributes)
+    }
+
     private func readEntry() -> FondEntry {
         guard let defaults = UserDefaults(suiteName: FondConstants.appGroupID) else {
             return .notConnected

@@ -20,6 +20,7 @@
 
 import Foundation
 import CoreLocation
+import MapKit
 
 @Observable
 final class LocationManager: NSObject, CLLocationManagerDelegate {
@@ -160,11 +161,11 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
 
     /// Returns a city/locality name for the given coordinates.
     static func reverseGeocode(lat: Double, lon: Double) async -> String? {
-        let geocoder = CLGeocoder()
         let location = CLLocation(latitude: lat, longitude: lon)
+        guard let request = MKReverseGeocodingRequest(location: location) else { return nil }
         do {
-            let placemarks = try await geocoder.reverseGeocodeLocation(location)
-            return placemarks.first?.locality
+            let mapItems = try await request.mapItems
+            return mapItems.first?.placemark.locality
         } catch {
             return nil
         }

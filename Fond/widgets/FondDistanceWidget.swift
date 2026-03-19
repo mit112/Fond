@@ -109,6 +109,32 @@ struct FondDistanceTimelineProvider: AppIntentTimelineProvider {
         return Timeline(entries: [entry], policy: .after(nextUpdate))
     }
 
+    func relevance() async -> WidgetRelevance<Intent> {
+        var attributes: [WidgetRelevanceAttribute<Intent>] = []
+        let config = FondDistanceWidgetConfigIntent()
+        let calendar = Calendar.current
+
+        // Daily relevance during morning commute (8 AM)
+        if let morningStart = calendar.date(bySettingHour: 7, minute: 45, second: 0, of: .now),
+           let morningEnd = calendar.date(bySettingHour: 8, minute: 30, second: 0, of: .now) {
+            attributes.append(WidgetRelevanceAttribute(
+                configuration: config,
+                context: .date(range: morningStart...morningEnd, kind: .scheduled)
+            ))
+        }
+
+        // Daily relevance during evening commute (6 PM)
+        if let eveningStart = calendar.date(bySettingHour: 17, minute: 45, second: 0, of: .now),
+           let eveningEnd = calendar.date(bySettingHour: 18, minute: 30, second: 0, of: .now) {
+            attributes.append(WidgetRelevanceAttribute(
+                configuration: config,
+                context: .date(range: eveningStart...eveningEnd, kind: .scheduled)
+            ))
+        }
+
+        return WidgetRelevance(attributes)
+    }
+
     private func readEntry() -> FondDistanceEntry {
         guard let defaults = UserDefaults(suiteName: FondConstants.appGroupID) else {
             return .notConnected

@@ -207,6 +207,7 @@
 				Shared/Crypto/KeychainManager.swift,
 				Shared/Crypto/KeyExchangeManager.swift,
 				"Shared/Extensions/Date+Extensions.swift",
+				Shared/FondWidgetIntent.swift,
 				Shared/Models/ConnectionState.swift,
 				Shared/Models/FondMessage.swift,
 				Shared/Models/FondUser.swift,

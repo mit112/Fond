@@ -38,17 +38,6 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         return true
     }
 
-    // Handle Google Sign-In URL callback
-    func application(_ app: UIApplication,
-                     open url: URL,
-                     options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
-        #if canImport(GoogleSignIn)
-        return GIDSignIn.sharedInstance.handle(url)
-        #else
-        return false
-        #endif
-    }
-
     // Forward APNs device token to Firebase Messaging
     func application(_ application: UIApplication,
                      didRegisterForRemoteNotificationsWithDeviceToken deviceToken: Data) {

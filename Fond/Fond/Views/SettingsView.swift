@@ -215,6 +215,7 @@ struct SettingsView: View {
         }
 
         WidgetCenter.shared.reloadAllTimelines()
+        Task { await FondRelevanceUpdater.update() }
 
         // Sync to Firestore so partner sees the same data
         Task {
@@ -271,6 +272,7 @@ struct SettingsView: View {
             )
         }
         WidgetCenter.shared.reloadAllTimelines()
+        Task { await FondRelevanceUpdater.update() }
         dismiss()
     }
 
@@ -316,5 +318,6 @@ struct SettingsView: View {
             forKey: FondConstants.connectionStateKey
         )
         WidgetCenter.shared.reloadAllTimelines()
+        Task { await FondRelevanceUpdater.update() }
     }
 }

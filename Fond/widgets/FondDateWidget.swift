@@ -87,6 +87,38 @@ struct FondDateTimelineProvider: AppIntentTimelineProvider {
         return Timeline(entries: [entry], policy: .after(midnight))
     }
 
+    func relevance() async -> WidgetRelevance<Intent> {
+        var attributes: [WidgetRelevanceAttribute<Intent>] = []
+        let config = FondDateWidgetConfigIntent()
+        let calendar = Calendar.current
+
+        // Boost around midnight when the day count changes
+        let tomorrow = calendar.startOfDay(
+            for: calendar.date(byAdding: .day, value: 1, to: .now)!
+        )
+        let midnightStart = tomorrow.addingTimeInterval(-15 * 60) // 11:45 PM
+        let midnightEnd = tomorrow.addingTimeInterval(15 * 60)    // 12:15 AM
+        attributes.append(WidgetRelevanceAttribute(
+            configuration: config,
+            context: .date(range: midnightStart...midnightEnd, kind: .scheduled)
+        ))
+
+        // If there's a countdown date, boost on that date
+        if let defaults = UserDefaults(suiteName: FondConstants.appGroupID),
+           let countdownDate = defaults.object(forKey: FondConstants.countdownDateKey) as? Date {
+            let countdownStart = calendar.startOfDay(for: countdownDate)
+            let countdownEnd = countdownStart.addingTimeInterval(24 * 60 * 60)
+            if countdownEnd > .now {
+                attributes.append(WidgetRelevanceAttribute(
+                    configuration: config,
+                    context: .date(range: countdownStart...countdownEnd, kind: .scheduled)
+                ))
+            }
+        }
+
+        return WidgetRelevance(attributes)
+    }
+
     private func readEntry() -> FondDateEntry {
         guard let defaults = UserDefaults(suiteName: FondConstants.appGroupID) else {
             return .notConnected

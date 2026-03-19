@@ -525,6 +525,9 @@ final class FirebaseManager: Sendable {
 
         // Reload widgets so they show "Not Connected"
         WidgetCenter.shared.reloadAllTimelines()
+
+        // Clear Smart Stack relevance entries
+        Task { await FondRelevanceUpdater.update() }
     }
 
     // MARK: - Push Notification (Cloud Function)
@@ -576,6 +579,9 @@ final class FirebaseManager: Sendable {
 
         // Reload all widget timelines so they pick up the new partner data
         WidgetCenter.shared.reloadAllTimelines()
+
+        // Update Smart Stack relevance with latest partner timestamps
+        Task { await FondRelevanceUpdater.update() }
     }
 
     // MARK: - Helpers

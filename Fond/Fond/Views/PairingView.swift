@@ -208,7 +208,7 @@ struct GenerateCodeView: View {
     private func startPolling(uid: String) {
         isPolling = true
         pollTimer = Timer.scheduledTimer(withTimeInterval: 3.0, repeats: true) { _ in
-            Task {
+            Task { @MainActor in
                 if let partnerUid = try? await FirebaseManager.shared.checkConnection(uid: uid) {
                     let _ = try? await FirebaseManager.shared.completeKeyExchange(partnerUid: partnerUid)
                     pollTimer?.invalidate()

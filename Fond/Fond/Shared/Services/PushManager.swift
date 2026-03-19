@@ -143,6 +143,7 @@ final class PushManager: NSObject {
             try? KeychainManager.shared.deleteAllKeys()
             clearAppGroup()
             WidgetCenter.shared.reloadAllTimelines()
+            Task { await FondRelevanceUpdater.update() }
             return .newData
         default:
             return .noData
