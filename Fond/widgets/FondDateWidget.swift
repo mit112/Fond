@@ -11,6 +11,7 @@
 //  Families: accessoryInline, accessoryCircular, systemSmall.
 //
 
+import AppIntents
 import WidgetKit
 import SwiftUI
 
@@ -66,23 +67,24 @@ struct FondDateEntry: TimelineEntry {
 
 // MARK: - Timeline Provider
 
-struct FondDateTimelineProvider: TimelineProvider {
+struct FondDateTimelineProvider: AppIntentTimelineProvider {
+    typealias Intent = FondDateWidgetConfigIntent
+
     func placeholder(in context: Context) -> FondDateEntry {
         .placeholder
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (FondDateEntry) -> Void) {
-        completion(readEntry())
+    func snapshot(for configuration: Intent, in context: Context) async -> FondDateEntry {
+        readEntry()
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<FondDateEntry>) -> Void) {
+    func timeline(for configuration: Intent, in context: Context) async -> Timeline<FondDateEntry> {
         let entry = readEntry()
         // Refresh at midnight so the day count updates
         let midnight = Calendar.current.startOfDay(
             for: Calendar.current.date(byAdding: .day, value: 1, to: .now)!
         )
-        let timeline = Timeline(entries: [entry], policy: .after(midnight))
-        completion(timeline)
+        return Timeline(entries: [entry], policy: .after(midnight))
     }
 
     private func readEntry() -> FondDateEntry {
@@ -375,8 +377,9 @@ struct FondDateWidget: Widget {
     let kind = "FondDateWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: FondDateTimelineProvider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: FondDateWidgetConfigIntent.self, provider: FondDateTimelineProvider()) { entry in
             FondDateWidgetEntryView(entry: entry)
+                .widgetURL(URL(string: "fond://open")!)
                 .containerBackground(for: .widget) {
                     FondColors.background
                 }

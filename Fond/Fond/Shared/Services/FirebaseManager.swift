@@ -9,6 +9,7 @@
 #if canImport(FirebaseFirestore)
 
 import Foundation
+import os
 import WidgetKit
 import FirebaseFirestore
 import FirebaseAuth
@@ -16,6 +17,8 @@ import FirebaseAuth
 #if canImport(FirebaseFunctions)
 import FirebaseFunctions
 #endif
+
+private let logger = Logger(subsystem: "com.mitsheth.Fond", category: "Firebase")
 
 final class FirebaseManager: Sendable {
     static let shared = FirebaseManager()
@@ -154,13 +157,9 @@ final class FirebaseManager: Sendable {
         message: String? = nil
     ) async throws {
         let encryptedStatus = try EncryptionManager.shared.encrypt(status.rawValue)
-        let encryptedName = try EncryptionManager.shared.encrypt(
-            Auth.auth().currentUser?.displayName ?? "Unknown"
-        )
 
         var userData: [String: Any] = [
             "encryptedStatus": encryptedStatus,
-            "encryptedName": encryptedName,
             "lastUpdatedAt": FieldValue.serverTimestamp(),
         ]
 
@@ -393,16 +392,26 @@ final class FirebaseManager: Sendable {
     }
 
     /// Fetches recent history entries, decrypts them.
-    func fetchHistory(connectionId: String, limit: Int = 50) async throws -> [FondMessage] {
-        let snapshot = try await db
+    /// Returns entries (oldest-first) and the last document snapshot for cursor-based pagination.
+    func fetchHistory(
+        connectionId: String,
+        limit: Int = 50,
+        startAfter: DocumentSnapshot? = nil
+    ) async throws -> (entries: [FondMessage], lastDocument: DocumentSnapshot?) {
+        var query = db
             .collection(FondConstants.connectionsCollection)
             .document(connectionId)
             .collection(FondConstants.historySubcollection)
             .order(by: "timestamp", descending: true)
             .limit(to: limit)
-            .getDocuments()
 
-        return snapshot.documents.compactMap { doc -> FondMessage? in
+        if let startAfter {
+            query = query.start(afterDocument: startAfter)
+        }
+
+        let snapshot = try await query.getDocuments()
+
+        let messages = snapshot.documents.compactMap { doc -> FondMessage? in
             let data = doc.data()
             guard let authorUid = data["authorUid"] as? String,
                   let typeRaw = data["type"] as? String,
@@ -419,6 +428,9 @@ final class FirebaseManager: Sendable {
                 timestamp: timestamp.dateValue()
             )
         }.reversed() // Oldest first for display
+
+        let lastDoc = snapshot.documents.count < limit ? nil : snapshot.documents.last
+        return (Array(messages), lastDoc)
     }
 
     // MARK: - Real-Time Listener
@@ -524,7 +536,7 @@ final class FirebaseManager: Sendable {
         let functions = Functions.functions(region: "us-central1")
         functions.httpsCallable(FondConstants.notifyPartnerFunction).call(["type": type]) { result, error in
             if let error {
-                print("[Fond] notifyPartner failed: \(error.localizedDescription)")
+                logger.error("notifyPartner failed: \(error.localizedDescription)")
             }
         }
         #endif

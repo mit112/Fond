@@ -11,11 +11,14 @@
  */
 
 import {onCall, HttpsError} from "firebase-functions/v2/https";
-import {defineSecret} from "firebase-functions/params";
+import {defineSecret, defineBoolean} from "firebase-functions/params";
 import {getFirestore, FieldValue} from "firebase-admin/firestore";
 import {getMessaging} from "firebase-admin/messaging";
 import * as logger from "firebase-functions/logger";
 import {sendWidgetPushToAll} from "./apnsHelper";
+
+// APNs config
+const apnsSandbox = defineBoolean("APNS_SANDBOX", {default: false});
 
 // APNs secrets for widget push
 const apnsKeyP8 = defineSecret("APNS_KEY_P8");
@@ -145,7 +148,7 @@ export const unlinkConnection = onCall(
 
         if (keyP8 && keyId && teamId) {
           await sendWidgetPushToAll(
-            widgetTokens, keyP8, keyId, teamId, /* sandbox= */ true
+            widgetTokens, keyP8, keyId, teamId, apnsSandbox.value()
           );
         }
       }

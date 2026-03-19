@@ -10,6 +10,9 @@
 //
 
 import SwiftUI
+#if canImport(FirebaseFirestore)
+import FirebaseFirestore
+#endif
 
 struct HistoryView: View {
     let connectionId: String
@@ -17,6 +20,9 @@ struct HistoryView: View {
 
     @State private var entries: [FondMessage] = []
     @State private var isLoading = true
+    @State private var lastDocument: DocumentSnapshot?
+    @State private var hasMore = true
+    @State private var isLoadingMore = false
     @Environment(\.dismiss) private var dismiss
 
     var body: some View {
@@ -68,6 +74,25 @@ struct HistoryView: View {
                         ForEach(group.entries) { entry in
                             historyBubble(entry)
                                 .id(entry.id)
+                        }
+                    }
+
+                    // Load more
+                    if hasMore {
+                        if isLoadingMore {
+                            ProgressView()
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 12)
+                        } else {
+                            Button {
+                                Task { await loadMore() }
+                            } label: {
+                                Text("Load More")
+                                    .font(.subheadline.weight(.medium))
+                                    .foregroundStyle(FondColors.amber)
+                                    .frame(maxWidth: .infinity)
+                                    .padding(.vertical, 12)
+                            }
                         }
                     }
                 }
@@ -227,11 +252,32 @@ struct HistoryView: View {
     // MARK: - Data Loading
 
     private func loadHistory() async {
+        isLoadingMore = false
         do {
-            entries = try await FirebaseManager.shared.fetchHistory(connectionId: connectionId)
+            let result = try await FirebaseManager.shared.fetchHistory(connectionId: connectionId)
+            entries = result.entries
+            lastDocument = result.lastDocument
+            hasMore = result.lastDocument != nil
         } catch {
             // Silently fail — show empty state
         }
         isLoading = false
+    }
+
+    private func loadMore() async {
+        guard hasMore, !isLoadingMore else { return }
+        isLoadingMore = true
+        do {
+            let result = try await FirebaseManager.shared.fetchHistory(
+                connectionId: connectionId,
+                startAfter: lastDocument
+            )
+            entries.append(contentsOf: result.entries)
+            lastDocument = result.lastDocument
+            hasMore = result.lastDocument != nil
+        } catch {
+            // Silently fail — keep existing entries
+        }
+        isLoadingMore = false
     }
 }

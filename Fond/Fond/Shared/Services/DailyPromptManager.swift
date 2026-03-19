@@ -20,6 +20,9 @@
 #if canImport(FirebaseFirestore)
 
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.mitsheth.Fond", category: "Prompt")
 
 @Observable
 final class DailyPromptManager {
@@ -61,7 +64,7 @@ final class DailyPromptManager {
     /// Loads prompts from the bundled DailyPrompts.json file.
     private func loadPrompts() {
         guard let url = Bundle.main.url(forResource: "DailyPrompts", withExtension: "json") else {
-            print("[Fond] DailyPromptManager: DailyPrompts.json not found in bundle")
+            logger.error("DailyPrompts.json not found in bundle")
             return
         }
 
@@ -69,7 +72,7 @@ final class DailyPromptManager {
             let data = try Data(contentsOf: url)
             allPrompts = try JSONDecoder().decode([DailyPrompt].self, from: data)
         } catch {
-            print("[Fond] DailyPromptManager: Failed to decode prompts: \(error)")
+            logger.error("Failed to decode prompts: \(error)")
         }
     }
 

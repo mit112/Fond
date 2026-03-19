@@ -14,7 +14,10 @@
 //
 
 import Foundation
+import os
 import WatchConnectivity
+
+private let logger = Logger(subsystem: "com.mitsheth.Fond", category: "WatchData")
 
 @Observable
 final class WatchDataStore: NSObject, WCSessionDelegate {
@@ -138,7 +141,7 @@ final class WatchDataStore: NSObject, WCSessionDelegate {
                 }
             }, errorHandler: { [weak self] error in
                 // Real-time failed — fall back to queued delivery
-                print("[FondWatch] sendMessage failed, falling back to transferUserInfo: \(error.localizedDescription)")
+                logger.warning("sendMessage failed, falling back to transferUserInfo: \(error.localizedDescription)")
                 session.transferUserInfo(message)
                 DispatchQueue.main.async {
                     // Treat queued send as success (will be delivered later)

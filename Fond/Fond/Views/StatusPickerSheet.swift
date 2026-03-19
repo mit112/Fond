@@ -13,6 +13,9 @@
 //
 
 import SwiftUI
+import os
+
+private let logger = Logger(subsystem: "com.mitsheth.Fond", category: "Status")
 
 struct StatusPickerSheet: View {
     let currentStatus: UserStatus
@@ -109,6 +112,6 @@ struct StatusPickerSheet: View {
 
 #Preview {
     StatusPickerSheet(currentStatus: .available) { status in
-        print("Selected: \(status)")
+        logger.debug("Selected: \(status.rawValue)")
     }
 }

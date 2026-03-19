@@ -15,6 +15,9 @@
 //
 
 import HealthKit
+import os
+
+private let logger = Logger(subsystem: "com.mitsheth.Fond", category: "Heartbeat")
 
 @Observable
 final class HeartbeatManager {
@@ -74,7 +77,7 @@ final class HeartbeatManager {
             isAuthorized = true // Optimistically — query will fail if denied
         } catch {
             errorMessage = "Authorization failed"
-            print("[FondWatch] HealthKit auth error: \(error.localizedDescription)")
+            logger.error("HealthKit auth error: \(error.localizedDescription)")
         }
     }
 
@@ -125,7 +128,7 @@ final class HeartbeatManager {
             return bpm
         } catch {
             errorMessage = "Could not read heart rate"
-            print("[FondWatch] HealthKit query error: \(error.localizedDescription)")
+            logger.error("HealthKit query error: \(error.localizedDescription)")
             lastBpm = nil
             return nil
         }

@@ -18,14 +18,17 @@
 #if canImport(FirebaseMessaging)
 
 import Foundation
+import os
 import UIKit
 import WidgetKit
 import FirebaseMessaging
 import FirebaseAuth
 import FirebaseFirestore
 
-@Observable
-final class PushManager: NSObject, Sendable {
+private let logger = Logger(subsystem: "com.mitsheth.Fond", category: "Push")
+
+@MainActor @Observable
+final class PushManager: NSObject {
     static let shared = PushManager()
 
     private(set) var fcmToken: String?
@@ -47,11 +50,11 @@ final class PushManager: NSObject, Sendable {
         let center = UNUserNotificationCenter.current()
         center.requestAuthorization(options: [.alert, .badge, .sound]) { granted, error in
             if let error {
-                print("[PushManager] Permission error: \(error.localizedDescription)")
+                logger.error("Permission error: \(error.localizedDescription)")
                 return
             }
             if granted {
-                DispatchQueue.main.async {
+                Task { @MainActor in
                     UIApplication.shared.registerForRemoteNotifications()
                 }
             }
@@ -106,7 +109,7 @@ final class PushManager: NSObject, Sendable {
                 .document(deviceId)
                 .setData(deviceData, merge: true)
         } catch {
-            print("[PushManager] Device registration failed: \(error.localizedDescription)")
+            logger.error("Device registration failed: \(error.localizedDescription)")
         }
     }
 
@@ -124,17 +127,17 @@ final class PushManager: NSObject, Sendable {
             return .noData
         }
 
-        print("[PushManager] Background push received: type=\(type)")
+        logger.info("Background push received: type=\(type)")
 
         switch type {
         case "status", "message", "nudge", "heartbeat", "promptAnswer":
             // Fast path: try to decrypt directly from push payload (~1ms)
             if decryptFromPayload(userInfo) {
-                print("[PushManager] Fast path: decrypted from push payload")
+                logger.info("Fast path: decrypted from push payload")
                 return .newData
             }
             // Fallback: fetch from Firestore (~1-2s)
-            print("[PushManager] Falling back to Firestore fetch")
+            logger.info("Falling back to Firestore fetch")
             return await refreshPartnerDataFromFirestore()
         case "unlink":
             try? KeychainManager.shared.deleteAllKeys()
@@ -240,7 +243,7 @@ final class PushManager: NSObject, Sendable {
         )
         #endif
 
-        print("[PushManager] Payload decryption success: \(name), status=\(status?.rawValue ?? "nil")")
+        logger.info("Payload decryption success: \(name), status=\(status?.rawValue ?? "nil")")
         return true
     }
 
@@ -252,7 +255,7 @@ final class PushManager: NSObject, Sendable {
     /// (old Cloud Function version or edge cases).
     private func refreshPartnerDataFromFirestore() async -> UIBackgroundFetchResult {
         guard let uid = Auth.auth().currentUser?.uid else {
-            print("[PushManager] No authenticated user for background refresh")
+            logger.warning("No authenticated user for background refresh")
             return .failed
         }
 
@@ -266,7 +269,7 @@ final class PushManager: NSObject, Sendable {
             guard let userData = userDoc.data(),
                   let partnerUid = userData["partnerUid"] as? String,
                   !partnerUid.isEmpty else {
-                print("[PushManager] No partner UID found")
+                logger.warning("No partner UID found")
                 return .failed
             }
 
@@ -275,7 +278,7 @@ final class PushManager: NSObject, Sendable {
                 .document(partnerUid)
                 .getDocument()
             guard let partnerData = partnerDoc.data() else {
-                print("[PushManager] Partner document empty")
+                logger.warning("Partner document empty")
                 return .failed
             }
 
@@ -360,10 +363,10 @@ final class PushManager: NSObject, Sendable {
             )
             #endif
 
-            print("[PushManager] Background refresh success: \(name), status=\(status?.rawValue ?? "nil")")
+            logger.info("Background refresh success: \(name), status=\(status?.rawValue ?? "nil")")
             return .newData
         } catch {
-            print("[PushManager] Background refresh failed: \(error.localizedDescription)")
+            logger.error("Background refresh failed: \(error.localizedDescription)")
             return .failed
         }
     }

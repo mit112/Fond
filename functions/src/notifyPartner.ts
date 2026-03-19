@@ -22,11 +22,14 @@
  */
 
 import {onCall, HttpsError} from "firebase-functions/v2/https";
-import {defineSecret} from "firebase-functions/params";
+import {defineSecret, defineBoolean} from "firebase-functions/params";
 import {getFirestore} from "firebase-admin/firestore";
 import {getMessaging} from "firebase-admin/messaging";
 import * as logger from "firebase-functions/logger";
 import {sendWidgetPushToAll} from "./apnsHelper";
+
+// APNs config
+const apnsSandbox = defineBoolean("APNS_SANDBOX", {default: false});
 
 // APNs secrets for direct widget push
 // (stored via `firebase functions:secrets:set`)
@@ -205,13 +208,51 @@ export const notifyPartner = onCall(
         devicesNotified += response.successCount;
 
         if (response.failureCount > 0) {
+          const staleTokenCleanups: Promise<void>[] = [];
+
           response.responses.forEach((resp, idx) => {
             if (!resp.success) {
               logger.warn(
                 `FCM send failed for token index ${idx}:`, resp.error
               );
+
+              // Clean up tokens that are no longer registered
+              // (user uninstalled/reinstalled the app)
+              if (
+                resp.error?.code ===
+                "messaging/registration-token-not-registered"
+              ) {
+                const staleToken = fcmTokens[idx];
+                const cleanup = db
+                  .collection("users")
+                  .doc(partnerUid)
+                  .collection("devices")
+                  .where("fcmToken", "==", staleToken)
+                  .get()
+                  .then((snap) => {
+                    const deletes = snap.docs.map((doc) => doc.ref.delete());
+                    return Promise.all(deletes);
+                  })
+                  .then(() => {
+                    logger.info(
+                      `Cleaned up stale FCM token for partner ` +
+                      `${partnerUid}: ${staleToken.substring(0, 8)}…`
+                    );
+                  })
+                  .catch((err) => {
+                    logger.warn(
+                      `Failed to clean up stale token for ${partnerUid}:`,
+                      err
+                    );
+                  });
+                staleTokenCleanups.push(cleanup);
+              }
             }
           });
+
+          if (staleTokenCleanups.length > 0) {
+            await Promise.all(staleTokenCleanups);
+          }
         }
       } catch (err) {
         logger.error("FCM multicast error:", err);
@@ -239,9 +280,8 @@ export const notifyPartner = onCall(
         );
 
         try {
-          // TODO: Set sandbox=false for production/TestFlight builds
           widgetsNotified = await sendWidgetPushToAll(
-            widgetTokens, keyP8, keyId, teamId, /* sandbox= */ true
+            widgetTokens, keyP8, keyId, teamId, apnsSandbox.value()
           );
         } catch (err) {
           logger.error("APNs widget push error:", err);

@@ -115,7 +115,7 @@ service cloud.firestore {
             get(/databases/$(database)/documents/connections/$(connectionId)).data
           )
           && request.resource.data.authorUid == request.auth.uid
-          && request.resource.data.type in ['status', 'message']
+          && request.resource.data.type in ['status', 'message', 'nudge', 'heartbeat', 'promptAnswer']
           && request.resource.data.timestamp is timestamp;
 
         // Update/Delete: history is immutable.

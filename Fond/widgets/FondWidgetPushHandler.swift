@@ -13,6 +13,9 @@
 
 import WidgetKit
 import Foundation
+import os
+
+private let logger = Logger(subsystem: "com.mitsheth.Fond", category: "WidgetPush")
 
 struct FondWidgetPushHandler: WidgetPushHandler {
 
@@ -28,8 +31,7 @@ struct FondWidgetPushHandler: WidgetPushHandler {
 
         defaults.set(tokenHex, forKey: FondConstants.widgetPushTokenKey)
 
-        // Log for debugging during development
-        print("[FondWidget] Push token updated: \(tokenHex.prefix(16))...")
-        print("[FondWidget] Configured widgets: \(widgets.map(\.kind))")
+        logger.info("Push token updated: \(tokenHex.prefix(16), privacy: .private)...")
+        logger.debug("Configured widgets: \(widgets.map(\.kind))")
     }
 }

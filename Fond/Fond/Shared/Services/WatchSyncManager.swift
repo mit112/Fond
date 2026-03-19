@@ -16,8 +16,11 @@
 #if os(iOS)
 
 import Foundation
+import os
 import WatchConnectivity
 import FirebaseAuth
+
+private let logger = Logger(subsystem: "com.mitsheth.Fond", category: "WatchSync")
 
 final class WatchSyncManager: NSObject, WCSessionDelegate, @unchecked Sendable {
 
@@ -27,8 +30,13 @@ final class WatchSyncManager: NSObject, WCSessionDelegate, @unchecked Sendable {
 
     /// Set by ConnectedView.setup() so watch actions can route to Firestore
     /// without an extra read. Cleared on disconnect.
-    private var cachedUid: String?
-    private var cachedConnectionId: String?
+    /// Protected by OSAllocatedUnfairLock to avoid data races between
+    /// MainActor writes and WCSession background-queue reads.
+    private struct ConnectionInfo {
+        var uid: String?
+        var connectionId: String?
+    }
+    private let connectionState = OSAllocatedUnfairLock(initialState: ConnectionInfo())
 
     private override init() {
         super.init()
@@ -39,14 +47,18 @@ final class WatchSyncManager: NSObject, WCSessionDelegate, @unchecked Sendable {
     /// Caches the current user's connection info for processing watch actions.
     /// Call from ConnectedView after fetching user data.
     func setConnectionInfo(uid: String, connectionId: String) {
-        cachedUid = uid
-        cachedConnectionId = connectionId
+        connectionState.withLock { state in
+            state.uid = uid
+            state.connectionId = connectionId
+        }
     }
 
     /// Clears cached connection info (call on unlink/sign-out).
     func clearConnectionInfo() {
-        cachedUid = nil
-        cachedConnectionId = nil
+        connectionState.withLock { state in
+            state.uid = nil
+            state.connectionId = nil
+        }
     }
 
     // MARK: - Activation
@@ -105,7 +117,7 @@ final class WatchSyncManager: NSObject, WCSessionDelegate, @unchecked Sendable {
         do {
             try WCSession.default.updateApplicationContext(context)
         } catch {
-            print("[Fond] WatchSync phone→watch failed: \(error.localizedDescription)")
+            logger.error("Phone→watch context update failed: \(error.localizedDescription)")
         }
     }
 
@@ -120,7 +132,7 @@ final class WatchSyncManager: NSObject, WCSessionDelegate, @unchecked Sendable {
                 "connectionState": "disconnected"
             ])
         } catch {
-            print("[Fond] WatchSync disconnect failed: \(error.localizedDescription)")
+            logger.error("Disconnect sync failed: \(error.localizedDescription)")
         }
     }
 
@@ -151,14 +163,14 @@ final class WatchSyncManager: NSObject, WCSessionDelegate, @unchecked Sendable {
     /// Routes an incoming watch action to the appropriate Firebase pipeline.
     private func processWatchAction(_ payload: [String: Any]) {
         guard let action = payload["action"] as? String else {
-            print("[Fond] WatchSync: received payload with no action key")
+            logger.warning("Received payload with no action key")
             return
         }
 
         // Resolve auth — prefer cached, fall back to live Auth
-        let uid = cachedUid ?? Auth.auth().currentUser?.uid
+        let uid = connectionState.withLock({ $0.uid }) ?? Auth.auth().currentUser?.uid
         guard let uid else {
-            print("[Fond] WatchSync: no authenticated user for action '\(action)'")
+            logger.error("No authenticated user for action '\(action)'")
             return
         }
 
@@ -168,13 +180,13 @@ final class WatchSyncManager: NSObject, WCSessionDelegate, @unchecked Sendable {
 
         case "heartbeat":
             guard let bpm = payload["bpm"] as? Int, bpm > 0 else {
-                print("[Fond] WatchSync: heartbeat action missing valid bpm")
+                logger.warning("Heartbeat action missing valid bpm")
                 return
             }
             handleHeartbeat(uid: uid, bpm: bpm)
 
         default:
-            print("[Fond] WatchSync: unknown action '\(action)'")
+            logger.warning("Unknown action '\(action)'")
         }
     }
 
@@ -189,9 +201,9 @@ final class WatchSyncManager: NSObject, WCSessionDelegate, @unchecked Sendable {
                     uid: uid,
                     connectionId: connectionId
                 )
-                print("[Fond] WatchSync: nudge sent successfully")
+                logger.info("Nudge sent successfully")
             } catch {
-                print("[Fond] WatchSync: nudge failed — \(error.localizedDescription)")
+                logger.error("Nudge failed: \(error.localizedDescription)")
             }
         }
     }
@@ -207,9 +219,9 @@ final class WatchSyncManager: NSObject, WCSessionDelegate, @unchecked Sendable {
                     connectionId: connectionId,
                     bpm: bpm
                 )
-                print("[Fond] WatchSync: heartbeat (\(bpm) bpm) sent successfully")
+                logger.info("Heartbeat (\(bpm) bpm) sent successfully")
             } catch {
-                print("[Fond] WatchSync: heartbeat failed — \(error.localizedDescription)")
+                logger.error("Heartbeat failed: \(error.localizedDescription)")
             }
         }
     }
@@ -218,7 +230,7 @@ final class WatchSyncManager: NSObject, WCSessionDelegate, @unchecked Sendable {
 
     /// Resolves connectionId, preferring cached value to avoid extra Firestore reads.
     private func resolveConnectionId(uid: String) async throws -> String {
-        if let cached = cachedConnectionId {
+        if let cached = connectionState.withLock({ $0.connectionId }) {
             return cached
         }
         // Fallback: fetch from Firestore (costs one read)
@@ -227,8 +239,10 @@ final class WatchSyncManager: NSObject, WCSessionDelegate, @unchecked Sendable {
             throw WatchSyncError.notConnected
         }
         // Cache for future actions
-        cachedConnectionId = connectionId
-        cachedUid = uid
+        connectionState.withLock { state in
+            state.connectionId = connectionId
+            state.uid = uid
+        }
         return connectionId
     }
 
@@ -240,7 +254,7 @@ final class WatchSyncManager: NSObject, WCSessionDelegate, @unchecked Sendable {
         error: Error?
     ) {
         if let error {
-            print("[Fond] WCSession activation error: \(error.localizedDescription)")
+            logger.error("WCSession activation error: \(error.localizedDescription)")
         }
     }
 

@@ -89,11 +89,14 @@ struct FondApp: App {
     var body: some Scene {
         WindowGroup {
             ContentView()
-            #if canImport(GoogleSignIn)
                 .onOpenURL { url in
+                    #if canImport(GoogleSignIn)
                     GIDSignIn.sharedInstance.handle(url)
+                    #endif
+
+                    // Widget deep links use fond:// scheme — app opens to current state
+                    // Future: route to specific screens based on url.host
                 }
-            #endif
         }
     }
 }

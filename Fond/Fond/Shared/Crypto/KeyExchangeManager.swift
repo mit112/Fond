@@ -47,11 +47,13 @@ final class KeyExchangeManager: Sendable {
         // Diffie-Hellman shared secret
         let sharedSecret = try privateKey.sharedSecretFromKeyAgreement(with: partnerPublicKey)
 
-        // HKDF to derive a 256-bit symmetric key
+        // HKDF to derive a 256-bit symmetric key.
+        // NOTE: sharedInfo was changed from Data() to "Fond-E2E-v1" pre-launch.
+        // This produces a different key — incompatible with any prior derivation.
         let symmetricKey = sharedSecret.hkdfDerivedSymmetricKey(
             using: SHA256.self,
             salt: "Fond-v1".data(using: .utf8)!,
-            sharedInfo: Data(),
+            sharedInfo: "Fond-E2E-v1".data(using: .utf8)!,
             outputByteCount: 32
         )
 

@@ -71,6 +71,8 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
     /// Returns nil if permission denied or location unavailable.
     @MainActor
     func captureLocation() async -> (lat: Double, lon: Double)? {
+        guard !isUpdating else { return nil }
+
         if !isAuthorized {
             requestAuthorization()
             // Wait briefly for authorization response

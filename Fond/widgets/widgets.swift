@@ -15,6 +15,7 @@
 //  Design reference: docs/02-design-direction.md
 //
 
+import AppIntents
 import WidgetKit
 import SwiftUI
 
@@ -64,20 +65,21 @@ struct FondEntry: TimelineEntry {
 
 // MARK: - Timeline Provider
 
-struct FondTimelineProvider: TimelineProvider {
+struct FondTimelineProvider: AppIntentTimelineProvider {
+    typealias Intent = FondWidgetConfigIntent
+
     func placeholder(in context: Context) -> FondEntry {
         .placeholder
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (FondEntry) -> Void) {
-        completion(readEntry())
+    func snapshot(for configuration: Intent, in context: Context) async -> FondEntry {
+        readEntry()
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<FondEntry>) -> Void) {
+    func timeline(for configuration: Intent, in context: Context) async -> Timeline<FondEntry> {
         let entry = readEntry()
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 15, to: .now)!
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
-        completion(timeline)
+        return Timeline(entries: [entry], policy: .after(nextUpdate))
     }
 
     private func readEntry() -> FondEntry {
@@ -369,8 +371,9 @@ struct FondWidget: Widget {
     let kind = "FondWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: FondTimelineProvider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: FondWidgetConfigIntent.self, provider: FondTimelineProvider()) { entry in
             FondWidgetEntryView(entry: entry)
+                .widgetURL(URL(string: "fond://open")!)
                 .containerBackground(for: .widget) {
                     // Full-color: warm Fond background
                     // Accented/vibrant: system handles it automatically

@@ -63,6 +63,7 @@ struct ConnectedView: View {
 
     // MARK: - Distance
 
+    @State private var lastLocationCapture: Date = .distantPast
     @State private var distanceMiles: Double?
     @State private var partnerCity: String?
     @State private var myCity: String?
@@ -152,9 +153,11 @@ struct ConnectedView: View {
         .task { await setup() }
         .onChange(of: scenePhase) { _, newPhase in
             if newPhase == .active {
-                // Re-capture location on every foreground return
+                // Re-capture location on foreground (debounced to every 5 minutes)
                 #if canImport(CoreLocation)
-                if let uid = authManager.currentUser?.uid {
+                if let uid = authManager.currentUser?.uid,
+                   Date().timeIntervalSince(lastLocationCapture) >= 300 {
+                    lastLocationCapture = Date()
                     Task {
                         await LocationManager.shared.captureAndUpload(uid: uid)
                     }
@@ -167,6 +170,8 @@ struct ConnectedView: View {
         .onDisappear {
             listener?.remove()
             connectionListener?.remove()
+            cooldownTimer?.invalidate()
+            cooldownTimer = nil
         }
     }
 

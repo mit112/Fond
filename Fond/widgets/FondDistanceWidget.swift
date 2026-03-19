@@ -12,6 +12,7 @@
 //  Families: accessoryInline, accessoryCircular, systemSmall.
 //
 
+import AppIntents
 import WidgetKit
 import SwiftUI
 
@@ -90,21 +91,22 @@ struct FondDistanceEntry: TimelineEntry {
 
 // MARK: - Timeline Provider
 
-struct FondDistanceTimelineProvider: TimelineProvider {
+struct FondDistanceTimelineProvider: AppIntentTimelineProvider {
+    typealias Intent = FondDistanceWidgetConfigIntent
+
     func placeholder(in context: Context) -> FondDistanceEntry {
         .placeholder
     }
 
-    func getSnapshot(in context: Context, completion: @escaping (FondDistanceEntry) -> Void) {
-        completion(readEntry())
+    func snapshot(for configuration: Intent, in context: Context) async -> FondDistanceEntry {
+        readEntry()
     }
 
-    func getTimeline(in context: Context, completion: @escaping (Timeline<FondDistanceEntry>) -> Void) {
+    func timeline(for configuration: Intent, in context: Context) async -> Timeline<FondDistanceEntry> {
         let entry = readEntry()
         // Refresh every 30 min — location updates are infrequent
         let nextUpdate = Calendar.current.date(byAdding: .minute, value: 30, to: .now)!
-        let timeline = Timeline(entries: [entry], policy: .after(nextUpdate))
-        completion(timeline)
+        return Timeline(entries: [entry], policy: .after(nextUpdate))
     }
 
     private func readEntry() -> FondDistanceEntry {
@@ -280,8 +282,9 @@ struct FondDistanceWidget: Widget {
     let kind = "FondDistanceWidget"
 
     var body: some WidgetConfiguration {
-        StaticConfiguration(kind: kind, provider: FondDistanceTimelineProvider()) { entry in
+        AppIntentConfiguration(kind: kind, intent: FondDistanceWidgetConfigIntent.self, provider: FondDistanceTimelineProvider()) { entry in
             FondDistanceWidgetEntryView(entry: entry)
+                .widgetURL(URL(string: "fond://open")!)
                 .containerBackground(for: .widget) {
                     FondColors.background
                 }
