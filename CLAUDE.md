@@ -79,7 +79,7 @@ Each state maps to a view: `SignInView` → `PairingView` → `KeySyncView` → 
 
 ### Encryption Pipeline (Zero-Knowledge)
 Three-layer system — all sensitive data encrypted client-side before touching Firestore:
-1. **X25519 ECDH** (`KeyExchangeManager`) — partners derive shared secret via Diffie-Hellman, HKDF-SHA256 with salt `"Fond-v1"`
+1. **X25519 ECDH** (`KeyExchangeManager`) — partners derive shared secret via Diffie-Hellman, HKDF-SHA256 with salt `"Fond-v1"` and sharedInfo `"Fond-E2E-v1"`
 2. **AES-256-GCM** (`EncryptionManager`) — every field prefixed `encrypted*` in Firestore is nonce+ciphertext+tag, Base64-encoded
 3. **Keychain** (`KeychainManager`) — private key and symmetric key stored with iCloud Keychain sync enabled, shared access group `3P89U4WZAB.com.mitsheth.Fond`
 
@@ -97,7 +97,7 @@ App Group (`group.com.mitsheth.Fond`) UserDefaults is the shared data bus betwee
 
 ### Cloud Functions (Privileged Operations)
 Four functions in `functions/src/`, all Firebase Functions v2, region `us-central1`:
-- `linkUsers` — atomic batch write: claim code + create connection + update both users
+- `linkUsers` — atomic Firestore transaction: claim code + create connection + update both users
 - `unlinkConnection` — atomic disconnect + push notification
 - `notifyPartner` — FCM fan-out + direct APNs for widget tokens
 - `expireCodes` — scheduled cleanup of expired pairing codes
@@ -105,13 +105,14 @@ Four functions in `functions/src/`, all Firebase Functions v2, region `us-centra
 These exist because Firestore security rules prevent one user from writing to another's document.
 
 ### Service Layer
-Singleton managers with `Sendable` conformance, accessed via `.shared`:
-- `FirebaseManager` — all Firestore reads/writes, App Group writes, Cloud Function calls
+Singleton managers accessed via `.shared`:
+- `FirebaseManager` — all Firestore reads/writes, App Group writes (async), Cloud Function calls
 - `AuthManager` (@Observable) — Firebase Auth with Apple/Google Sign-In
-- `PushManager` (@Observable) — FCM token management, dual-path push handling
-- `LocationManager` (@Observable) — one-shot capture, Haversine distance, reverse geocode
+- `PushManager` (@MainActor @Observable) — FCM token management, dual-path push handling
+- `LocationManager` (@Observable) — one-shot capture (guarded against concurrent calls), Haversine distance, reverse geocode via `MKReverseGeocodingRequest`
 - `DailyPromptManager` (@Observable) — deterministic UTC-day prompt rotation from bundled JSON
-- `WatchSyncManager` — WatchConnectivity bridge, routes watch actions through FirebaseManager
+- `WatchSyncManager` (`@unchecked Sendable`, `OSAllocatedUnfairLock`-protected) — WatchConnectivity bridge, routes watch actions through FirebaseManager
+- `FondRelevanceUpdater` — pushes `RelevantIntent` entries to `RelevantIntentManager` for watchOS Smart Stack surfacing
 
 ### Widgets (WidgetKit)
 Three widgets in `FondWidgetBundle`, all reading from App Group UserDefaults:
@@ -122,9 +123,9 @@ Three widgets in `FondWidgetBundle`, all reading from App Group UserDefaults:
 | **FondDateWidget** (days together / countdown) | accessoryInline, accessoryCircular, systemSmall, systemMedium | At midnight |
 | **FondDistanceWidget** (miles/km apart) | accessoryInline, accessoryCircular, systemSmall | 30 min |
 
-Rendering modes: `.fullColor` (home screen, warm Fond palette), `.accented` (system tints amber), `.vibrant` (lock screen, white on translucent). FondWidget uses `.pushHandler(FondWidgetPushHandler.self)` for direct APNs widget pushes.
+Rendering modes: `.fullColor` (home screen, warm Fond palette), `.accented` (system tints amber), `.vibrant` (lock screen, white on translucent). FondWidget uses `.pushHandler(FondWidgetPushHandler.self)` for direct APNs widget pushes. All widgets use `AppIntentConfiguration` with `WidgetConfigurationIntent` structs (defined in `FondWidgetIntent.swift`, shared between app and widget targets).
 
-**Not yet implemented:** `RelevantIntentManager` / relevance entries for watchOS Smart Stack surfacing — widgets currently rely on timeline refresh only.
+**Smart Stack relevance:** All three providers implement `relevance()` returning time-based `WidgetRelevance` entries. The main app also pushes entries via `FondRelevanceUpdater` → `RelevantIntentManager` whenever partner data arrives. Relevance window constants live in `FondConstants` (`relevanceMorningHour`, `relevanceEveningHour`, etc.).
 
 ### Design System (Liquid Glass)
 - `FondTheme` — iOS 26 `.glassEffect()` modifiers (`.fondGlass()`, `.fondGlassInteractive()`, `.fondGlassPlain()`), `.fondCard()` with `GlassEffect.clear` fallback to surface+shadow. Animated `MeshGradient` background (3x3 grid, 6s breathing cycle; static `LinearGradient` on watchOS). Centralized haptics (`FondHaptics`), animation presets (`.fondSpring`, `.fondQuick`).
@@ -137,7 +138,9 @@ Rendering modes: `.fullColor` (home screen, warm Fond palette), `.accented` (sys
 - **All encrypted Firestore fields are prefixed `encrypted*`** and contain Base64-encoded AES-256-GCM ciphertext.
 - **Plaintext Firestore fields** exist only where needed for queries/ordering: `publicKey`, `connectionId`, `partnerUid`, `createdAt`, `anniversaryDate`, `countdownDate`, `timestamp`, `type`.
 - **History is append-only and immutable** — Firestore rules enforce `allow update, delete: if false` on the history subcollection.
-- **Constants live in `FondConstants.swift`** — collection names, App Group ID, Keychain access group, rate limits, UserDefaults keys. Reference this file for any magic strings.
+- **Constants live in `FondConstants.swift`** — collection names, App Group ID, Keychain access group, rate limits, UserDefaults keys, relevance window hours. Reference this file for any magic strings.
+- **Logging uses `os.Logger`** — per-file `Logger(subsystem: "com.mitsheth.Fond", category: "<Name>")`. Never use `print()`.
+- **APNs sandbox is environment-configured** — `APNS_SANDBOX` param in Cloud Functions (default: `false` = production). Set `true` for local dev.
 - **`#if canImport()`** guards are required for Firebase SDK imports — widget and NSE targets don't link all Firebase frameworks.
 
 ## Dependencies
