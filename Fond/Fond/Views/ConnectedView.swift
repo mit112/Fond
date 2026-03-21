@@ -17,6 +17,9 @@ import SwiftUI
 import WidgetKit
 import FirebaseAuth
 import FirebaseFirestore
+import os
+
+private let logger = Logger(subsystem: "com.mitsheth.Fond", category: "ConnectedView")
 
 struct ConnectedView: View {
     var authManager: AuthManager
@@ -71,11 +74,25 @@ struct ConnectedView: View {
     // MARK: - Environment
 
     @Environment(\.scenePhase) private var scenePhase
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     // MARK: - Animation
 
     @State var partnerDataVisible = false
     @State private var isBreathing = false
+
+    // MARK: - Nudge
+
+    @State private var lastNudgeTime: Date = .distantPast
+    @State private var nudgeHintVisible = true
+    @State private var nudgeScale: CGFloat = 1.0
+    @State private var nudgeShakeOffset: CGFloat = 0
+
+    // MARK: - Contextual Card
+
+    @State private var lastSentMessageTime: Date?
+    @State var lastNudgeReceivedTime: Date?
+    @State private var showDailyPromptSheet = false
 
     // MARK: - Body
 
@@ -92,75 +109,87 @@ struct ConnectedView: View {
 
                 Spacer(minLength: 16)
 
-                ConnectedPartnerCard(
-                    partnerName: partnerName,
-                    partnerStatus: partnerStatus,
-                    partnerMessage: partnerMessage,
-                    partnerLastUpdated: partnerLastUpdated,
-                    partnerHeartbeatBpm: partnerHeartbeatBpm,
-                    partnerHeartbeatTime: partnerHeartbeatTime,
-                    distanceMiles: distanceMiles,
-                    partnerCity: partnerCity,
-                    isBreathing: isBreathing
-                )
+                // Partner card with nudge gesture + staleness timer
+                TimelineView(.periodic(from: .now, by: 60)) { _ in
+                    ConnectedPartnerCard(
+                        partnerName: partnerName,
+                        partnerStatus: partnerStatus,
+                        partnerMessage: partnerMessage,
+                        partnerLastUpdated: partnerLastUpdated,
+                        partnerHeartbeatBpm: partnerHeartbeatBpm,
+                        partnerHeartbeatTime: partnerHeartbeatTime,
+                        distanceMiles: distanceMiles,
+                        partnerCity: partnerCity,
+                        isBreathing: isBreathing,
+                        nudgeHintVisible: nudgeHintVisible,
+                        isStale: isDataStale,
+                        onNudge: sendNudge
+                    )
+                }
                 .padding(.horizontal, 24)
                 .opacity(partnerDataVisible ? 1 : 0)
-                .scaleEffect(
-                    partnerDataVisible ? 1 : 0.95
-                )
+                .scaleEffect(partnerDataVisible ? nudgeScale : 0.95)
+                .offset(x: nudgeShakeOffset)
+                .onLongPressGesture(minimumDuration: 0.5) { sendNudge() }
+                .accessibilityAction(named: "Send nudge") { sendNudge() }
                 .onAppear {
-                    withAnimation(
-                        .easeInOut(duration: 4.0)
-                            .repeatForever(autoreverses: true)
-                    ) {
+                    guard !reduceMotion else { return }
+                    withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
                         isBreathing = true
                     }
                 }
 
-                Spacer(minLength: 20)
+                Spacer(minLength: 12)
 
-                dailyPrompt
+                // Contextual card with auto-dismiss timer
+                TimelineView(.periodic(from: .now, by: 10)) { _ in
+                    ContextualCardView(
+                        cards: activeContextualCards,
+                        onTapPrompt: { showDailyPromptSheet = true }
+                    )
+                }
+                .padding(.horizontal, 24)
 
-                statusIndicator
-                    .padding(.horizontal, 24)
-                    .padding(.bottom, 12)
+                Spacer(minLength: 10)
 
+                // Fixed bottom bar
                 ConnectedMessageInput(
                     messageText: $messageText,
+                    myStatus: myStatus,
                     isSending: isSending,
                     sendSuccess: sendSuccess,
                     cooldownRemaining: cooldownRemaining,
                     errorMessage: errorMessage,
-                    lastSentMessage: lastSentMessage,
-                    onSend: sendMessage
+                    onSend: sendMessage,
+                    onStatusTap: { showStatusPicker = true }
                 )
+                .padding(.horizontal, 20)
+                .padding(.bottom, 12)
             }
         }
         .sheet(isPresented: $showStatusPicker) {
-            StatusPickerSheet(
-                currentStatus: myStatus
-            ) { newStatus in
+            StatusPickerSheet(currentStatus: myStatus) { newStatus in
                 setStatus(newStatus)
             }
         }
         .sheet(isPresented: $showHistory) {
-            if let connectionId,
-               let uid = authManager.currentUser?.uid {
-                HistoryView(
-                    connectionId: connectionId,
-                    myUid: uid
-                )
+            if let connectionId, let uid = authManager.currentUser?.uid {
+                HistoryView(connectionId: connectionId, myUid: uid)
             }
         }
         .sheet(isPresented: $showSettings) {
-            SettingsView(
-                authManager: authManager,
-                connectionId: connectionId,
-                onDisconnect: onDisconnect
-            )
+            SettingsView(authManager: authManager, connectionId: connectionId, onDisconnect: onDisconnect)
+        }
+        .sheet(isPresented: $showDailyPromptSheet) {
+            if let uid = authManager.currentUser?.uid, let cid = connectionId {
+                DailyPromptCard(partnerName: partnerName, uid: uid, connectionId: cid)
+                    .presentationDetents([.medium, .large])
+                    .presentationDragIndicator(.visible)
+            }
         }
         .task { await setupConnection() }
         .onChange(of: scenePhase) { _, newPhase in
+            if newPhase == .active { nudgeHintVisible = true }
             handleScenePhaseChange(newPhase)
         }
         .onDisappear {
@@ -187,9 +216,10 @@ struct ConnectedView: View {
 
             Spacer()
 
-            Text("Fond")
-                .font(.subheadline.weight(.semibold))
-                .foregroundStyle(FondColors.textSecondary)
+            Text("FOND")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(FondColors.textSecondary.opacity(0.3))
+                .tracking(1.5)
 
             Spacer()
 
@@ -205,61 +235,35 @@ struct ConnectedView: View {
         }
     }
 
-    // MARK: - Daily Prompt
+    // MARK: - Stale Check
 
-    @ViewBuilder
-    private var dailyPrompt: some View {
-        if let uid = authManager.currentUser?.uid,
-           let cid = connectionId {
-            DailyPromptCard(
-                partnerName: partnerName,
-                uid: uid,
-                connectionId: cid
-            )
-            .padding(.horizontal, 24)
-            .padding(.bottom, 12)
-        }
+    private var isDataStale: Bool {
+        guard let lastUpdated = partnerLastUpdated else { return false }
+        return Date().timeIntervalSince(lastUpdated) > 3600
     }
 
-    // MARK: - Status Indicator
+    // MARK: - Contextual Cards
 
-    private var statusIndicator: some View {
-        Button {
-            showStatusPicker = true
-        } label: {
-            HStack(spacing: 12) {
-                Text(myStatus.emoji)
-                    .font(.title2)
+    private var activeContextualCards: [ContextualCardType] {
+        var cards: [ContextualCardType] = []
+        let now = Date()
 
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Your Status")
-                        .font(.caption.weight(.medium))
-                        .foregroundStyle(FondColors.textSecondary)
-                        .tracking(0.3)
-                    Text(myStatus.displayName)
-                        .font(.subheadline.weight(.medium))
-                        .foregroundStyle(FondColors.text)
-                }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.caption.weight(.semibold))
-                    .foregroundStyle(
-                        FondColors.textSecondary
-                    )
-            }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
+        if let nudgeTime = lastNudgeReceivedTime, now.timeIntervalSince(nudgeTime) < 30 {
+            cards.append(.nudgeReceived(partnerName: partnerName))
         }
-        .buttonStyle(.plain)
-        .fondGlassInteractive(
-            in: RoundedRectangle(
-                cornerRadius: 16,
-                style: .continuous
-            )
-        )
+        if let bpm = partnerHeartbeatBpm, let time = partnerHeartbeatTime, now.timeIntervalSince(time) < 1800 {
+            cards.append(.heartbeat(bpm: bpm, time: time))
+        }
+        let pm = DailyPromptManager.shared
+        if pm.isSubmitted && pm.partnerAnswer != nil {
+            cards.append(.bothAnswered)
+        } else if let prompt = pm.todaysPrompt, !pm.isSubmitted {
+            cards.append(.dailyPrompt(text: prompt.text))
+        }
+        if let sentTime = lastSentMessageTime, now.timeIntervalSince(sentTime) < 60, let msg = lastSentMessage {
+            cards.append(.sentEcho(message: msg))
+        }
+        return cards
     }
 
     // MARK: - Rate Limiting
@@ -363,6 +367,7 @@ struct ConnectedView: View {
                 withAnimation(.fondQuick) {
                     sendSuccess = true
                     lastSentMessage = toSend
+                    lastSentMessageTime = Date()
                 }
                 try? await Task.sleep(for: .seconds(1.2))
                 withAnimation(.fondQuick) {
@@ -373,6 +378,44 @@ struct ConnectedView: View {
                 messageText = toSend
             }
             isSending = false
+        }
+    }
+
+    private func sendNudge() {
+        let now = Date()
+        guard now.timeIntervalSince(lastNudgeTime) >= Double(FondConstants.nudgeCooldownSeconds) else {
+            FondHaptics.error()
+            withAnimation(.fondQuick) { nudgeShakeOffset = 4 }
+            Task { @MainActor in
+                try? await Task.sleep(for: .milliseconds(80))
+                withAnimation(.fondQuick) { nudgeShakeOffset = -4 }
+                try? await Task.sleep(for: .milliseconds(80))
+                withAnimation(.fondQuick) { nudgeShakeOffset = 4 }
+                try? await Task.sleep(for: .milliseconds(80))
+                withAnimation(.fondQuick) { nudgeShakeOffset = 0 }
+            }
+            return
+        }
+
+        guard let uid = authManager.currentUser?.uid,
+              let connectionId else { return }
+
+        lastNudgeTime = now
+        FondHaptics.messageSent()
+        nudgeHintVisible = false
+
+        withAnimation(.fondQuick) { nudgeScale = 1.02 }
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(200))
+            withAnimation(.fondQuick) { nudgeScale = 1.0 }
+        }
+
+        Task {
+            do {
+                try await FirebaseManager.shared.sendNudge(uid: uid, connectionId: connectionId)
+            } catch {
+                logger.error("Nudge failed: \(error.localizedDescription)")
+            }
         }
     }
 
