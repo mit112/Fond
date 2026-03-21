@@ -1,11 +1,3 @@
-//
-//  FirebaseManager.swift
-//  Fond
-//
-//  Wrapper for all Firestore read/write operations.
-//  Phase 1: Pairing (code generation, lookup, linking).
-//
-
 #if canImport(FirebaseFirestore)
 
 import Foundation
@@ -31,7 +23,6 @@ final class FirebaseManager: Sendable {
     func ensureUserDocument(uid: String) async throws {
         let ref = db.collection(FondConstants.usersCollection).document(uid)
         let doc = try await ref.getDocument()
-
         if !doc.exists {
             try await ref.setData([
                 "createdAt": FieldValue.serverTimestamp(),
@@ -48,27 +39,22 @@ final class FirebaseManager: Sendable {
         ])
     }
 
-    // MARK: - Pairing Code Generation
+    // MARK: - Pairing Code
 
-    /// Generates a unique 6-character code and writes it to Firestore.
-    /// Returns the code string.
+    /// Generates a unique 6-character code and writes it to Firestore. Returns the code string.
     func generatePairingCode(creatorUid: String) async throws -> String {
         let code = generateUniqueCode()
         let expiresAt = Date().addingTimeInterval(
             Double(FondConstants.codeExpirationMinutes) * 60
         )
-
         try await db.collection(FondConstants.codesCollection).document(code).setData([
             "creatorUid": creatorUid,
             "claimed": false,
             "createdAt": FieldValue.serverTimestamp(),
             "expiresAt": Timestamp(date: expiresAt),
         ])
-
         return code
     }
-
-    // MARK: - Pairing Code Lookup
 
     /// Looks up a code. Returns the creator's UID if valid and unclaimed, nil otherwise.
     func lookupPairingCode(_ code: String) async throws -> String? {
@@ -83,39 +69,43 @@ final class FirebaseManager: Sendable {
               let expiresAt = data["expiresAt"] as? Timestamp else {
             return nil
         }
-
-        // Check not claimed and not expired
-        if claimed || expiresAt.dateValue() < Date() {
-            return nil
-        }
-
+        if claimed || expiresAt.dateValue() < Date() { return nil }
         return creatorUid
     }
 
-    // MARK: - Link Two Users
+    // MARK: - Link / Unlink
 
-    /// Claims the code and links two users together via Cloud Function.
-    /// The Cloud Function handles the atomic batch write (claim code + create connection
-    /// + update both users' docs) — required because the claimer can't write to the
-    /// creator's user doc under client-side security rules.
+    /// Claims the code and links two users via Cloud Function (atomic batch write).
     func linkUsers(code: String, claimerUid: String) async throws {
         #if canImport(FirebaseFunctions)
         let normalized = code.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
         let functions = Functions.functions(region: "us-central1")
-        let _ = try await functions.httpsCallable(FondConstants.linkUsersFunction)
+        _ = try await functions.httpsCallable(FondConstants.linkUsersFunction)
             .call(["code": normalized])
+        #endif
+    }
+
+    /// Calls the unlinkConnection Cloud Function to atomically disconnect both users.
+    func callUnlinkConnection() async throws {
+        #if canImport(FirebaseFunctions)
+        let functions = Functions.functions(region: "us-central1")
+        _ = try await functions
+            .httpsCallable(FondConstants.unlinkConnectionFunction).call()
+        #endif
+        try KeychainManager.shared.deleteAllKeys()
+        await clearAppGroup()
+        #if os(iOS)
+        WatchSyncManager.shared.syncDisconnected()
         #endif
     }
 
     // MARK: - Connection Status
 
-    /// Checks if the user is currently connected to a partner.
     /// Returns the partner's UID if connected, nil otherwise.
     func checkConnection(uid: String) async throws -> String? {
         let doc = try await db.collection(FondConstants.usersCollection)
             .document(uid)
             .getDocument()
-
         let partnerUid = doc.data()?["partnerUid"] as? String
         return (partnerUid?.isEmpty == false) ? partnerUid : nil
     }
@@ -125,7 +115,6 @@ final class FirebaseManager: Sendable {
     /// Generates a key pair, stores private key in Keychain, writes public key to Firestore.
     func publishPublicKey(uid: String) async throws {
         let publicKeyBase64 = try KeyExchangeManager.shared.generateAndStoreKeyPair()
-
         try await db.collection(FondConstants.usersCollection).document(uid).setData([
             "publicKey": publicKeyBase64,
         ], merge: true)
@@ -137,19 +126,19 @@ final class FirebaseManager: Sendable {
         let doc = try await db.collection(FondConstants.usersCollection)
             .document(partnerUid)
             .getDocument()
-
-        guard let publicKey = doc.data()?["publicKey"] as? String, !publicKey.isEmpty else {
-            return false // Partner hasn't published their key yet
+        guard let publicKey = doc.data()?["publicKey"] as? String,
+              !publicKey.isEmpty else {
+            return false
         }
-
-        try KeyExchangeManager.shared.deriveAndStoreSymmetricKey(partnerPublicKeyBase64: publicKey)
+        try KeyExchangeManager.shared.deriveAndStoreSymmetricKey(
+            partnerPublicKeyBase64: publicKey
+        )
         return true
     }
 
     // MARK: - Status & Messaging
 
     /// Updates the user's encrypted status and optional message in Firestore.
-    /// Also appends to history subcollection.
     func updateStatus(
         uid: String,
         connectionId: String,
@@ -157,43 +146,29 @@ final class FirebaseManager: Sendable {
         message: String? = nil
     ) async throws {
         let encryptedStatus = try EncryptionManager.shared.encrypt(status.rawValue)
-
         var userData: [String: Any] = [
             "encryptedStatus": encryptedStatus,
             "lastUpdatedAt": FieldValue.serverTimestamp(),
         ]
-
         var encryptedMessage: String?
         if let message, !message.isEmpty {
             let encrypted = try EncryptionManager.shared.encrypt(message)
             userData["encryptedMessage"] = encrypted
             encryptedMessage = encrypted
         }
-
-        // Update user doc
         try await db.collection(FondConstants.usersCollection)
             .document(uid)
             .updateData(userData)
-
-        // Append status to history
         try await appendHistory(
-            connectionId: connectionId,
-            authorUid: uid,
-            type: .status,
-            encryptedPayload: encryptedStatus
+            connectionId: connectionId, authorUid: uid,
+            type: .status, encryptedPayload: encryptedStatus
         )
-
-        // Append message to history if present
         if let encryptedMessage {
             try await appendHistory(
-                connectionId: connectionId,
-                authorUid: uid,
-                type: .message,
-                encryptedPayload: encryptedMessage
+                connectionId: connectionId, authorUid: uid,
+                type: .message, encryptedPayload: encryptedMessage
             )
         }
-
-        // Push to partner (fire-and-forget, parallel with Firestore write)
         callNotifyPartner(type: message != nil ? "message" : "status")
     }
 
@@ -204,79 +179,58 @@ final class FirebaseManager: Sendable {
         message: String
     ) async throws {
         let encrypted = try EncryptionManager.shared.encrypt(message)
-
         try await db.collection(FondConstants.usersCollection)
             .document(uid)
             .updateData([
                 "encryptedMessage": encrypted,
                 "lastUpdatedAt": FieldValue.serverTimestamp(),
             ])
-
         try await appendHistory(
-            connectionId: connectionId,
-            authorUid: uid,
-            type: .message,
-            encryptedPayload: encrypted
+            connectionId: connectionId, authorUid: uid,
+            type: .message, encryptedPayload: encrypted
         )
-
-        // Push to partner
         callNotifyPartner(type: "message")
     }
 
     // MARK: - Date Settings
 
     /// Sets the anniversary date on the connection document (shared between both partners).
-    /// Plaintext — not sensitive, needed for widget date math.
     func setAnniversaryDate(connectionId: String, date: Date?) async throws {
-        let ref = db.collection(FondConstants.connectionsCollection).document(connectionId)
-        if let date {
-            try await ref.updateData([
-                "anniversaryDate": Timestamp(date: date),
-            ])
-        } else {
-            try await ref.updateData([
-                "anniversaryDate": FieldValue.delete(),
-            ])
-        }
+        let ref = db.collection(FondConstants.connectionsCollection)
+            .document(connectionId)
+        let value: Any = date.map { Timestamp(date: $0) } ?? FieldValue.delete()
+        try await ref.updateData(["anniversaryDate": value])
     }
 
     /// Sets the countdown date + encrypted label on the user's own document.
-    /// Date is plaintext (widget math); label is encrypted (could reveal plans).
     func setCountdownDate(uid: String, date: Date?, label: String?) async throws {
         var data: [String: Any] = [:]
-        if let date {
-            data["countdownDate"] = Timestamp(date: date)
-        } else {
-            data["countdownDate"] = FieldValue.delete()
-        }
+        data["countdownDate"] = date.map { Timestamp(date: $0) } ?? FieldValue.delete()
         if let label, !label.isEmpty {
-            let encrypted = try EncryptionManager.shared.encrypt(label)
-            data["countdownLabel"] = encrypted
+            data["countdownLabel"] = try EncryptionManager.shared.encrypt(label)
         } else {
             data["countdownLabel"] = FieldValue.delete()
         }
-        try await db.collection(FondConstants.usersCollection).document(uid).updateData(data)
+        try await db.collection(FondConstants.usersCollection)
+            .document(uid).updateData(data)
     }
 
     /// Listens for changes to the connection document (e.g., partner sets anniversary).
-    /// Returns a ListenerRegistration that must be retained.
     func listenToConnection(
         connectionId: String,
         onChange: @escaping (_ anniversaryDate: Date?) -> Void
     ) -> ListenerRegistration {
-        return db.collection(FondConstants.connectionsCollection)
+        db.collection(FondConstants.connectionsCollection)
             .document(connectionId)
             .addSnapshotListener { snapshot, error in
                 guard let data = snapshot?.data(), error == nil else { return }
-                let date = (data["anniversaryDate"] as? Timestamp)?.dateValue()
-                onChange(date)
+                onChange((data["anniversaryDate"] as? Timestamp)?.dateValue())
             }
     }
 
     // MARK: - Location
 
     /// Updates the user's encrypted location in Firestore.
-    /// Called by LocationManager after one-shot capture + encryption.
     func updateLocation(uid: String, encryptedLocation: String) async throws {
         try await db.collection(FondConstants.usersCollection)
             .document(uid)
@@ -289,86 +243,60 @@ final class FirebaseManager: Sendable {
     // MARK: - Daily Prompt
 
     /// Submits an encrypted prompt answer to Firestore.
-    /// Writes to user doc, appends to history, and pushes to partner.
     func submitPromptAnswer(
         uid: String,
         connectionId: String,
         encryptedAnswer: String
     ) async throws {
-        // Write to user doc
         try await db.collection(FondConstants.usersCollection)
             .document(uid)
             .updateData([
                 "encryptedPromptAnswer": encryptedAnswer,
                 "lastUpdatedAt": FieldValue.serverTimestamp(),
             ])
-
-        // Append to history
         try await appendHistory(
-            connectionId: connectionId,
-            authorUid: uid,
-            type: .promptAnswer,
-            encryptedPayload: encryptedAnswer
+            connectionId: connectionId, authorUid: uid,
+            type: .promptAnswer, encryptedPayload: encryptedAnswer
         )
-
-        // Push to partner — silent notification
         callNotifyPartner(type: "promptAnswer")
     }
 
-    // MARK: - Nudge ("Thinking of You")
+    // MARK: - Nudge
 
-    /// Sends a nudge — a lightweight "thinking of you" signal.
-    /// Writes "💛" as the current message (reuses existing field),
-    /// logs to history, and pushes to partner.
+    /// Sends a nudge -- writes encrypted payload, logs to history, pushes to partner.
     func sendNudge(uid: String, connectionId: String) async throws {
-        let encryptedPayload = try EncryptionManager.shared.encrypt("💛")
-
-        // Update user doc — nudge replaces current message with 💛
+        let encryptedPayload = try EncryptionManager.shared.encrypt("\u{1F49B}")
         try await db.collection(FondConstants.usersCollection)
             .document(uid)
             .updateData([
                 "encryptedMessage": encryptedPayload,
                 "lastUpdatedAt": FieldValue.serverTimestamp(),
             ])
-
-        // Append to history
         try await appendHistory(
-            connectionId: connectionId,
-            authorUid: uid,
-            type: .nudge,
-            encryptedPayload: encryptedPayload
+            connectionId: connectionId, authorUid: uid,
+            type: .nudge, encryptedPayload: encryptedPayload
         )
-
-        // Push to partner — alert notification
+        try await db.collection(FondConstants.usersCollection)
+            .document(uid)
+            .updateData(["lastNudge": FieldValue.serverTimestamp()])
         callNotifyPartner(type: "nudge")
     }
 
-    // MARK: - Heartbeat Snapshot
+    // MARK: - Heartbeat
 
-    /// Sends a point-in-time heart rate snapshot.
-    /// Writes encrypted bpm to a dedicated field (doesn't overwrite message),
-    /// logs to history, and pushes to partner.
+    /// Sends an encrypted heart rate snapshot, logs to history, pushes to partner.
     func sendHeartbeat(uid: String, connectionId: String, bpm: Int) async throws {
-        let heartbeatJSON = "{\"bpm\":\(bpm)}"
-        let encryptedHeartbeat = try EncryptionManager.shared.encrypt(heartbeatJSON)
-
-        // Write to dedicated heartbeat field on user doc
+        let encrypted = try EncryptionManager.shared.encrypt("{\"bpm\":\(bpm)}")
         try await db.collection(FondConstants.usersCollection)
             .document(uid)
             .updateData([
-                "encryptedHeartbeat": encryptedHeartbeat,
+                "encryptedHeartbeat": encrypted,
                 "lastUpdatedAt": FieldValue.serverTimestamp(),
             ])
-
-        // Append to history
         try await appendHistory(
-            connectionId: connectionId,
-            authorUid: uid,
-            type: .heartbeat,
-            encryptedPayload: encryptedHeartbeat
+            connectionId: connectionId, authorUid: uid,
+            type: .heartbeat, encryptedPayload: encrypted
         )
-
-        // Push to partner — alert notification
         callNotifyPartner(type: "heartbeat")
     }
 
@@ -391,8 +319,7 @@ final class FirebaseManager: Sendable {
             ])
     }
 
-    /// Fetches recent history entries, decrypts them.
-    /// Returns entries (oldest-first) and the last document snapshot for cursor-based pagination.
+    /// Fetches recent history entries (oldest-first) with cursor-based pagination.
     func fetchHistory(
         connectionId: String,
         limit: Int = 50,
@@ -404,40 +331,33 @@ final class FirebaseManager: Sendable {
             .collection(FondConstants.historySubcollection)
             .order(by: "timestamp", descending: true)
             .limit(to: limit)
-
         if let startAfter {
             query = query.start(afterDocument: startAfter)
         }
-
         let snapshot = try await query.getDocuments()
-
         let messages = snapshot.documents.compactMap { doc -> FondMessage? in
             let data = doc.data()
             guard let authorUid = data["authorUid"] as? String,
                   let typeRaw = data["type"] as? String,
                   let type = FondMessage.EntryType(rawValue: typeRaw),
-                  let encryptedPayload = data["encryptedPayload"] as? String,
-                  let timestamp = data["timestamp"] as? Timestamp else {
+                  let encrypted = data["encryptedPayload"] as? String,
+                  let ts = data["timestamp"] as? Timestamp else {
                 return nil
             }
             return FondMessage(
-                id: doc.documentID,
-                authorUid: authorUid,
-                type: type,
-                encryptedPayload: encryptedPayload,
-                timestamp: timestamp.dateValue()
+                id: doc.documentID, authorUid: authorUid,
+                type: type, encryptedPayload: encrypted,
+                timestamp: ts.dateValue()
             )
-        }.reversed() // Oldest first for display
-
-        let lastDoc = snapshot.documents.count < limit ? nil : snapshot.documents.last
+        }.reversed()
+        let lastDoc = snapshot.documents.count < limit
+            ? nil : snapshot.documents.last
         return (Array(messages), lastDoc)
     }
 
     // MARK: - Real-Time Listener
 
-    /// Listens for changes to the partner's user doc.
-    /// Returns a ListenerRegistration that must be retained.
-    /// Callback payload from the partner listener — groups all encrypted fields.
+    /// Callback payload from the partner listener -- groups all encrypted fields.
     struct PartnerUpdate {
         let encryptedStatus: String?
         let encryptedMessage: String?
@@ -446,18 +366,19 @@ final class FirebaseManager: Sendable {
         let encryptedLocation: String?
         let encryptedPromptAnswer: String?
         let lastUpdated: Date?
+        let lastNudge: Date?
     }
 
     /// Listens for changes to the partner's user doc.
-    /// Returns a ListenerRegistration that must be retained.
     func listenToPartner(
         partnerUid: String,
         onChange: @escaping (PartnerUpdate) -> Void
     ) -> ListenerRegistration {
-        return db.collection(FondConstants.usersCollection)
+        db.collection(FondConstants.usersCollection)
             .document(partnerUid)
             .addSnapshotListener { snapshot, error in
                 guard let data = snapshot?.data(), error == nil else { return }
+                let lastNudge = (data["lastNudge"] as? Timestamp)?.dateValue()
                 onChange(PartnerUpdate(
                     encryptedStatus: data["encryptedStatus"] as? String,
                     encryptedMessage: data["encryptedMessage"] as? String,
@@ -465,90 +386,42 @@ final class FirebaseManager: Sendable {
                     encryptedHeartbeat: data["encryptedHeartbeat"] as? String,
                     encryptedLocation: data["encryptedLocation"] as? String,
                     encryptedPromptAnswer: data["encryptedPromptAnswer"] as? String,
-                    lastUpdated: (data["lastUpdatedAt"] as? Timestamp)?.dateValue()
+                    lastUpdated: (data["lastUpdatedAt"] as? Timestamp)?.dateValue(),
+                    lastNudge: lastNudge
                 ))
             }
     }
 
     // MARK: - User Data Fetch
 
-    /// Fetches the current user's full document data.
-    func fetchUserData(uid: String) async throws -> (connectionId: String?, partnerUid: String?) {
+    /// Fetches the current user's connection and partner data.
+    func fetchUserData(
+        uid: String
+    ) async throws -> (connectionId: String?, partnerUid: String?) {
         let doc = try await db.collection(FondConstants.usersCollection)
-            .document(uid)
-            .getDocument()
+            .document(uid).getDocument()
         let data = doc.data()
-        return (
-            connectionId: data?["connectionId"] as? String,
-            partnerUid: data?["partnerUid"] as? String
-        )
-    }
-
-    // MARK: - Unlink
-
-    /// Calls the unlinkConnection Cloud Function to atomically disconnect both users.
-    func callUnlinkConnection() async throws {
-        #if canImport(FirebaseFunctions)
-        let functions = Functions.functions(region: "us-central1")
-        let _ = try await functions.httpsCallable(FondConstants.unlinkConnectionFunction).call()
-        #endif
-
-        // Local cleanup
-        try KeychainManager.shared.deleteAllKeys()
-        await clearAppGroup()
-
-        // Sync disconnect to Apple Watch
-        #if os(iOS)
-        WatchSyncManager.shared.syncDisconnected()
-        #endif
-    }
-
-    /// Clears all partner data from App Group UserDefaults.
-    private func clearAppGroup() async {
-        guard let defaults = UserDefaults(suiteName: FondConstants.appGroupID) else { return }
-        defaults.removeObject(forKey: FondConstants.partnerNameKey)
-        defaults.removeObject(forKey: FondConstants.partnerStatusKey)
-        defaults.removeObject(forKey: FondConstants.partnerMessageKey)
-        defaults.removeObject(forKey: FondConstants.partnerLastUpdatedKey)
-        defaults.removeObject(forKey: FondConstants.anniversaryDateKey)
-        defaults.removeObject(forKey: FondConstants.countdownDateKey)
-        defaults.removeObject(forKey: FondConstants.countdownLabelKey)
-        defaults.removeObject(forKey: FondConstants.distanceMilesKey)
-        defaults.removeObject(forKey: FondConstants.partnerCityKey)
-        defaults.removeObject(forKey: FondConstants.partnerHeartbeatKey)
-        defaults.removeObject(forKey: FondConstants.partnerHeartbeatTimeKey)
-        defaults.removeObject(forKey: FondConstants.partnerPromptAnswerKey)
-        defaults.removeObject(forKey: FondConstants.dailyPromptIdKey)
-        defaults.removeObject(forKey: FondConstants.dailyPromptTextKey)
-        defaults.removeObject(forKey: FondConstants.myPromptAnswerKey)
-        defaults.set(ConnectionState.unpaired.rawValue, forKey: FondConstants.connectionStateKey)
-
-        // Reload widgets so they show "Not Connected"
-        WidgetCenter.shared.reloadAllTimelines()
-
-        // Clear Smart Stack relevance entries
-        await FondRelevanceUpdater.update()
+        return (data?["connectionId"] as? String, data?["partnerUid"] as? String)
     }
 
     // MARK: - Push Notification (Cloud Function)
 
-    /// Calls the notifyPartner Cloud Function to push to partner's devices.
-    /// Runs in parallel with Firestore writes for speed.
+    /// Calls the notifyPartner Cloud Function (fire-and-forget).
     func callNotifyPartner(type: String) {
         #if canImport(FirebaseFunctions)
         let functions = Functions.functions(region: "us-central1")
-        functions.httpsCallable(FondConstants.notifyPartnerFunction).call(["type": type]) { result, error in
-            if let error {
-                logger.error("notifyPartner failed: \(error.localizedDescription)")
+        functions.httpsCallable(FondConstants.notifyPartnerFunction)
+            .call(["type": type]) { _, error in
+                if let error {
+                    logger.error("notifyPartner failed: \(error.localizedDescription)")
+                }
             }
-        }
         #endif
     }
 
     // MARK: - App Group (Widget Data)
 
-    /// Writes decrypted partner data to App Group UserDefaults so widgets can read it.
-    /// Also triggers a widget timeline reload so widgets pick up the new data immediately.
+    /// Writes decrypted partner data to App Group UserDefaults for widgets.
     func writePartnerDataToAppGroup(
         name: String?,
         status: UserStatus?,
@@ -563,34 +436,51 @@ final class FirebaseManager: Sendable {
         defaults.set(status?.rawValue, forKey: FondConstants.partnerStatusKey)
         defaults.set(message, forKey: FondConstants.partnerMessageKey)
         defaults.set(lastUpdated, forKey: FondConstants.partnerLastUpdatedKey)
-        defaults.set(ConnectionState.connected.rawValue, forKey: FondConstants.connectionStateKey)
-
+        defaults.set(
+            ConnectionState.connected.rawValue,
+            forKey: FondConstants.connectionStateKey
+        )
         if let bpm = heartbeatBpm {
             defaults.set(bpm, forKey: FondConstants.partnerHeartbeatKey)
             defaults.set(Date(), forKey: FondConstants.partnerHeartbeatTimeKey)
         }
-
         if let miles = distanceMiles {
             defaults.set(miles, forKey: FondConstants.distanceMilesKey)
         }
         if let city = partnerCity {
             defaults.set(city, forKey: FondConstants.partnerCityKey)
         }
-
-        // Reload all widget timelines so they pick up the new partner data
         WidgetCenter.shared.reloadAllTimelines()
-
-        // Update Smart Stack relevance with latest partner timestamps
         await FondRelevanceUpdater.update()
     }
 
     // MARK: - Helpers
 
+    /// Clears all partner data from App Group UserDefaults.
+    private func clearAppGroup() async {
+        guard let defaults = UserDefaults(suiteName: FondConstants.appGroupID) else { return }
+        let keysToRemove = [
+            FondConstants.partnerNameKey, FondConstants.partnerStatusKey,
+            FondConstants.partnerMessageKey, FondConstants.partnerLastUpdatedKey,
+            FondConstants.anniversaryDateKey, FondConstants.countdownDateKey,
+            FondConstants.countdownLabelKey, FondConstants.distanceMilesKey,
+            FondConstants.partnerCityKey, FondConstants.partnerHeartbeatKey,
+            FondConstants.partnerHeartbeatTimeKey, FondConstants.partnerPromptAnswerKey,
+            FondConstants.dailyPromptIdKey, FondConstants.dailyPromptTextKey,
+            FondConstants.myPromptAnswerKey,
+        ]
+        keysToRemove.forEach { defaults.removeObject(forKey: $0) }
+        defaults.set(
+            ConnectionState.unpaired.rawValue,
+            forKey: FondConstants.connectionStateKey
+        )
+        WidgetCenter.shared.reloadAllTimelines()
+        await FondRelevanceUpdater.update()
+    }
+
     private func generateUniqueCode() -> String {
-        let characters = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789" // No 0/O/1/I to avoid confusion
-        return String((0..<FondConstants.codeLength).map { _ in
-            characters.randomElement()!
-        })
+        let chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+        return String((0..<FondConstants.codeLength).map { _ in chars.randomElement()! })
     }
 }
 

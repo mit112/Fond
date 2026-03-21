@@ -92,7 +92,8 @@ extension ConnectedView {
             let decoded = decryptPartnerUpdate(update)
             applyPartnerUpdate(
                 decoded,
-                lastUpdated: update.lastUpdated
+                lastUpdated: update.lastUpdated,
+                lastNudge: update.lastNudge
             )
 
             DailyPromptManager.shared.receivePartnerAnswer(
@@ -183,7 +184,8 @@ extension ConnectedView {
 
     func applyPartnerUpdate(
         _ decoded: DecodedPartnerData,
-        lastUpdated: Date?
+        lastUpdated: Date?,
+        lastNudge: Date? = nil
     ) {
         let wasVisible = partnerDataVisible
         let oldStatus = self.partnerStatus
@@ -215,6 +217,15 @@ extension ConnectedView {
         if wasVisible,
            decoded.heartbeatBpm != nil,
            decoded.heartbeatBpm != oldBpm {
+            FondHaptics.partnerUpdated()
+        }
+
+        // Nudge received — check if partner sent a new nudge
+        if let nudgeTime = lastNudge,
+           nudgeTime != lastNudgeReceivedTime {
+            withAnimation(.fondQuick) {
+                lastNudgeReceivedTime = nudgeTime
+            }
             FondHaptics.partnerUpdated()
         }
     }
