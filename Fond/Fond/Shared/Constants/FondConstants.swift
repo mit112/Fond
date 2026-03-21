@@ -29,6 +29,7 @@ enum FondConstants {
     static let codeExpirationMinutes = 10
     static let maxMessageLength = 100
     static let rateLimitSeconds = 5
+    static let nudgeCooldownSeconds = 30
 
     // MARK: - Cloud Function Names
 
