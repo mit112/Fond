@@ -29,6 +29,7 @@ struct ConnectedPartnerCard: View {
 
     var body: some View {
         VStack(spacing: 10) {
+            Spacer(minLength: 0)
             statusIndicator
             statusEmoji
             nameLabel
@@ -36,9 +37,10 @@ struct ConnectedPartnerCard: View {
             timeAgoLabel
             ambientDataRow
             nudgeHint
+            Spacer(minLength: 0)
         }
-        .frame(maxWidth: .infinity)
-        .padding(.vertical, 24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .padding(.vertical, 20)
         .padding(.horizontal, 20)
         .fondCard(cornerRadius: 24)
         .overlay { statusAtmosphere }
@@ -97,7 +99,7 @@ struct ConnectedPartnerCard: View {
                 .padding(.vertical, 10)
                 .background(
                     RoundedRectangle(cornerRadius: 16, style: .continuous)
-                        .fill(FondColors.bubblePartner)
+                        .fill(FondColors.lavender.opacity(0.18))
                 )
                 .transition(.opacity.combined(with: .move(edge: .bottom)))
         }
@@ -183,7 +185,7 @@ struct ConnectedPartnerCard: View {
 
     private var statusAtmosphere: some View {
         EllipticalGradient(
-            colors: [statusColor.opacity(isStale ? 0.05 : 0.10), .clear],
+            colors: [statusColor.opacity(isStale ? 0.05 : 0.18), .clear],
             center: .init(x: 0.5, y: 0.3)
         )
         .clipShape(RoundedRectangle(cornerRadius: 24, style: .continuous))

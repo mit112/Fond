@@ -107,8 +107,6 @@ struct ConnectedView: View {
                     .padding(.horizontal, 20)
                     .padding(.top, 8)
 
-                Spacer(minLength: 16)
-
                 // Partner card with nudge gesture + staleness timer
                 TimelineView(.periodic(from: .now, by: 60)) { _ in
                     ConnectedPartnerCard(
@@ -127,6 +125,10 @@ struct ConnectedView: View {
                     )
                 }
                 .padding(.horizontal, 24)
+                .padding(.top, 12)
+                .containerRelativeFrame(.vertical) { height, _ in
+                    height * 0.6
+                }
                 .opacity(partnerDataVisible ? 1 : 0)
                 .scaleEffect(partnerDataVisible ? nudgeScale : 0.95)
                 .offset(x: nudgeShakeOffset)
@@ -139,18 +141,18 @@ struct ConnectedView: View {
                     }
                 }
 
-                Spacer(minLength: 12)
-
                 // Contextual card with auto-dismiss timer
-                TimelineView(.periodic(from: .now, by: 10)) { _ in
-                    ContextualCardView(
-                        cards: activeContextualCards,
-                        onTapPrompt: { showDailyPromptSheet = true }
-                    )
+                if !activeContextualCards.isEmpty {
+                    TimelineView(.periodic(from: .now, by: 10)) { _ in
+                        ContextualCardView(
+                            cards: activeContextualCards,
+                            onTapPrompt: { showDailyPromptSheet = true }
+                        )
+                    }
+                    .padding(.horizontal, 24)
+                    .padding(.top, 10)
+                    .padding(.bottom, 4)
                 }
-                .padding(.horizontal, 24)
-
-                Spacer(minLength: 10)
 
                 // Fixed bottom bar
                 ConnectedMessageInput(
@@ -257,7 +259,7 @@ struct ConnectedView: View {
         let pm = DailyPromptManager.shared
         if pm.isSubmitted && pm.partnerAnswer != nil {
             cards.append(.bothAnswered)
-        } else if let prompt = pm.todaysPrompt, !pm.isSubmitted {
+        } else if let prompt = pm.todaysPrompt {
             cards.append(.dailyPrompt(text: prompt.text))
         }
         if let sentTime = lastSentMessageTime, now.timeIntervalSince(sentTime) < 60, let msg = lastSentMessage {
