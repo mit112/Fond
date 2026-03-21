@@ -211,7 +211,7 @@ struct GenerateCodeView: View {
             Task { @MainActor in
                 guard self.isPolling else { return }
                 if let partnerUid = try? await FirebaseManager.shared.checkConnection(uid: uid) {
-                    let _ = try? await FirebaseManager.shared.completeKeyExchange(partnerUid: partnerUid)
+                    _ = try? await FirebaseManager.shared.completeKeyExchange(partnerUid: partnerUid)
                     pollTimer?.invalidate()
                     self.isPolling = false
                     FondHaptics.pairingSuccess()
@@ -338,7 +338,7 @@ struct EnterCodeView: View {
                 try await FirebaseManager.shared.publishPublicKey(uid: uid)
                 try await FirebaseManager.shared.linkUsers(code: code, claimerUid: uid)
                 if let partnerUid = try await FirebaseManager.shared.checkConnection(uid: uid) {
-                    let _ = try await FirebaseManager.shared.completeKeyExchange(partnerUid: partnerUid)
+                    _ = try await FirebaseManager.shared.completeKeyExchange(partnerUid: partnerUid)
                 }
                 FondHaptics.pairingSuccess()
                 onConnected()

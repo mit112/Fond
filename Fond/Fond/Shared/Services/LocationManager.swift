@@ -47,7 +47,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     private var continuation: CheckedContinuation<CLLocation?, Never>?
 
-    private override init() {
+    override private init() {
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyHundredMeters
@@ -165,7 +165,7 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
         guard let request = MKReverseGeocodingRequest(location: location) else { return nil }
         do {
             let mapItems = try await request.mapItems
-            return mapItems.first?.placemark.locality
+            return mapItems.first?.addressRepresentations?.cityName
         } catch {
             return nil
         }

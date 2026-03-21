@@ -12,6 +12,7 @@
 import SwiftUI
 
 @main
+// swiftlint:disable:next type_name
 struct watchkitapp_Watch_AppApp: App {
 
     @State private var dataStore = WatchDataStore()

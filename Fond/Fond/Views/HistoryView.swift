@@ -30,12 +30,12 @@ struct HistoryView: View {
             Group {
                 if isLoading {
                     ZStack {
-                        FondColors.background.ignoresSafeArea()
+                        FondMeshGradient()
                         ProgressView()
                     }
                 } else if entries.isEmpty {
                     ZStack {
-                        FondColors.background.ignoresSafeArea()
+                        FondMeshGradient()
                         ContentUnavailableView(
                             "No history yet",
                             systemImage: "clock",
@@ -99,7 +99,7 @@ struct HistoryView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
             }
-            .fondBackground()
+            .background(FondMeshGradient())
             .onAppear {
                 // Scroll to bottom (newest)
                 if let lastId = entries.last?.id {
@@ -112,10 +112,20 @@ struct HistoryView: View {
     // MARK: - Day Separator
 
     private func daySeparator(_ date: Date) -> some View {
-        Text(dayLabel(for: date))
-            .font(.caption.weight(.semibold))
-            .foregroundStyle(FondColors.textSecondary)
-            .frame(maxWidth: .infinity)
+        HStack(spacing: 12) {
+            line
+            Text(dayLabel(for: date))
+                .font(.caption2.weight(.semibold))
+                .foregroundStyle(FondColors.amber.opacity(0.7))
+                .tracking(0.5)
+            line
+        }
+    }
+
+    private var line: some View {
+        Rectangle()
+            .fill(FondColors.amber.opacity(0.15))
+            .frame(height: 1)
     }
 
     private func dayLabel(for date: Date) -> String {
@@ -137,12 +147,13 @@ struct HistoryView: View {
     private func historyBubble(_ entry: FondMessage) -> some View {
         let isMe = entry.authorUid == myUid
         let decrypted = EncryptionManager.shared.decryptOrNil(entry.encryptedPayload)
+        let isMessage = entry.type == .message || entry.type == .promptAnswer
 
         HStack {
-            if isMe { Spacer(minLength: 60) }
+            // Messages get more width; status pills stay compact
+            if isMe { Spacer(minLength: isMessage ? 40 : 100) }
 
-            VStack(alignment: isMe ? .trailing : .leading, spacing: 4) {
-                // Content — route by entry type
+            VStack(alignment: isMe ? .trailing : .leading, spacing: 3) {
                 switch entry.type {
                 case .status:
                     if let raw = decrypted {
@@ -153,7 +164,7 @@ struct HistoryView: View {
                 case .nudge:
                     compactPill(
                         icon: "💛",
-                        label: isMe ? "You’re thinking of them" : "Thinking of you",
+                        label: isMe ? "Thinking of them" : "Thinking of you",
                         tint: FondColors.amber
                     )
 
@@ -176,7 +187,7 @@ struct HistoryView: View {
                        let data = json.data(using: .utf8),
                        let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                        let answer = dict["answer"] as? String {
-                        VStack(alignment: isMe ? .trailing : .leading, spacing: 4) {
+                        VStack(alignment: isMe ? .trailing : .leading, spacing: 3) {
                             Text("💬 Daily Prompt")
                                 .font(.caption2.weight(.semibold))
                                 .foregroundStyle(FondColors.textSecondary)
@@ -190,32 +201,31 @@ struct HistoryView: View {
                     messageBubble(text: decrypted ?? "[encrypted]", isMe: isMe)
                 }
 
-                // Timestamp
                 Text(entry.timestamp.historyTimestamp)
                     .font(.caption2)
-                    .foregroundStyle(FondColors.textSecondary.opacity(0.7))
+                    .foregroundStyle(FondColors.textSecondary.opacity(0.6))
                     .padding(.horizontal, 4)
             }
 
-            if !isMe { Spacer(minLength: 60) }
+            if !isMe { Spacer(minLength: isMessage ? 40 : 100) }
         }
     }
 
     // MARK: - Reusable Components
 
     private func compactPill(icon: String, label: String, tint: Color = FondColors.surface) -> some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             Text(icon)
-                .font(.subheadline)
+                .font(.caption)
             Text(label)
-                .font(.subheadline)
+                .font(.caption)
                 .foregroundStyle(FondColors.textSecondary)
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
         .background(
             Capsule()
-                .fill(tint.opacity(0.15))
+                .fill(tint.opacity(0.12))
         )
     }
 

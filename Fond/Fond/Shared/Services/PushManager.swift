@@ -33,7 +33,7 @@ final class PushManager: NSObject {
 
     private(set) var fcmToken: String?
 
-    private override init() {
+    override private init() {
         super.init()
     }
 
@@ -69,7 +69,7 @@ final class PushManager: NSObject {
         guard let uid = Auth.auth().currentUser?.uid,
               let token = fcmToken else { return }
 
-        let deviceId = await UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
+        let deviceId = UIDevice.current.identifierForVendor?.uuidString ?? UUID().uuidString
         let db = Firestore.firestore()
 
         let platform: String = {
@@ -152,108 +152,32 @@ final class PushManager: NSObject {
 
     // MARK: - Fast Path: Decrypt from Push Payload
 
-    /// Decrypts partner data directly from the push payload without any
-    /// network calls. Returns true if the payload contained encrypted fields
-    /// and decryption succeeded, false if fallback to Firestore is needed.
-    ///
-    /// The notifyPartner Cloud Function includes the caller's encrypted
-    /// fields in the FCM data payload. FCM delivers these as top-level
-    /// keys in userInfo (not nested under "data").
+    /// Decrypts partner data directly from the push payload (~1ms, no network).
     private func decryptFromPayload(_ userInfo: [AnyHashable: Any]) async -> Bool {
-        // Check if payload contains encrypted fields (new Cloud Function format)
         guard userInfo["encryptedName"] is String ||
               userInfo["encryptedStatus"] is String else {
             return false
         }
 
-        // Decrypt all available fields
-        let name = EncryptionManager.shared.decryptOrNil(
-            userInfo["encryptedName"] as? String
-        ) ?? "Your person"
+        let fields = decryptFields(from: userInfo)
+        let distance = computeDistance(from: userInfo)
 
-        var status: UserStatus?
-        if let encStatus = userInfo["encryptedStatus"] as? String,
-           let statusRaw = EncryptionManager.shared.decryptOrNil(encStatus) {
-            status = UserStatus(rawValue: statusRaw)
-        }
-
-        let message = EncryptionManager.shared.decryptOrNil(
-            userInfo["encryptedMessage"] as? String
-        )
-
-        // Heartbeat
-        var heartbeatBpm: Int?
-        if let encHB = userInfo["encryptedHeartbeat"] as? String,
-           let json = EncryptionManager.shared.decryptOrNil(encHB),
-           let jsonData = json.data(using: .utf8),
-           let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-            heartbeatBpm = dict["bpm"] as? Int
-        }
-
-        // Location + distance
-        var distanceMiles: Double?
-        var partnerCity: String?
-        #if canImport(CoreLocation)
-        if let encLoc = userInfo["encryptedLocation"] as? String,
-           let locJSON = EncryptionManager.shared.decryptOrNil(encLoc),
-           let locData = locJSON.data(using: .utf8),
-           let locDict = try? JSONSerialization.jsonObject(with: locData) as? [String: Any],
-           let partnerLat = locDict["lat"] as? Double,
-           let partnerLon = locDict["lon"] as? Double,
-           let myLat = LocationManager.shared.latitude,
-           let myLon = LocationManager.shared.longitude {
-            distanceMiles = LocationManager.haversineDistance(
-                lat1: myLat, lon1: myLon,
-                lat2: partnerLat, lon2: partnerLon
-            )
-            // Note: reverse geocode is async and we're sync here.
-            // Distance is written; city will be picked up by ConnectedView listener.
-        }
-        #endif
-
-        // Prompt answer
         if let encPrompt = userInfo["encryptedPromptAnswer"] as? String {
-            DailyPromptManager.shared.receivePartnerAnswer(
-                encryptedAnswer: encPrompt
-            )
+            DailyPromptManager.shared.receivePartnerAnswer(encryptedAnswer: encPrompt)
         }
 
-        // Write to App Group (this also calls reloadAllTimelines)
-        await FirebaseManager.shared.writePartnerDataToAppGroup(
-            name: name,
-            status: status,
-            message: message,
-            lastUpdated: Date(),
-            heartbeatBpm: heartbeatBpm,
-            distanceMiles: distanceMiles,
-            partnerCity: partnerCity
+        await distributePartnerData(
+            fields: fields, lastUpdated: Date(),
+            distanceMiles: distance, partnerCity: nil
         )
 
-        // Sync to Apple Watch
-        #if os(iOS)
-        WatchSyncManager.shared.syncPartnerData(
-            name: name,
-            status: status?.rawValue,
-            statusEmoji: status?.emoji,
-            message: message,
-            lastUpdated: Date(),
-            heartbeatBpm: heartbeatBpm,
-            distanceMiles: distanceMiles,
-            promptText: DailyPromptManager.shared.todaysPrompt?.text,
-            partnerPromptAnswer: DailyPromptManager.shared.partnerAnswer
-        )
-        #endif
-
-        logger.info("Payload decryption success: \(name), status=\(status?.rawValue ?? "nil")")
+        logger.info("Payload decryption success: \(fields.name), status=\(fields.status?.rawValue ?? "nil")")
         return true
     }
 
     // MARK: - Fallback: Fetch from Firestore
 
-    /// Fallback path — fetches partner's latest Firestore doc, decrypts all
-    /// fields, writes to App Group, and triggers widget reload.
-    /// Only used when the push payload doesn't contain encrypted fields
-    /// (old Cloud Function version or edge cases).
+    /// Fallback path — fetches partner's Firestore doc when payload is missing.
     private func refreshPartnerDataFromFirestore() async -> UIBackgroundFetchResult {
         guard let uid = Auth.auth().currentUser?.uid else {
             logger.warning("No authenticated user for background refresh")
@@ -262,11 +186,8 @@ final class PushManager: NSObject {
 
         do {
             let db = Firestore.firestore()
-
-            // 1. Get partner UID from our own user doc
             let userDoc = try await db.collection(FondConstants.usersCollection)
-                .document(uid)
-                .getDocument()
+                .document(uid).getDocument()
             guard let userData = userDoc.data(),
                   let partnerUid = userData["partnerUid"] as? String,
                   !partnerUid.isEmpty else {
@@ -274,97 +195,27 @@ final class PushManager: NSObject {
                 return .failed
             }
 
-            // 2. Fetch partner's latest document
             let partnerDoc = try await db.collection(FondConstants.usersCollection)
-                .document(partnerUid)
-                .getDocument()
+                .document(partnerUid).getDocument()
             guard let partnerData = partnerDoc.data() else {
                 logger.warning("Partner document empty")
                 return .failed
             }
 
-            // 3. Decrypt all partner fields
-            let name = EncryptionManager.shared.decryptOrNil(
-                partnerData["encryptedName"] as? String
-            ) ?? "Your person"
-
-            var status: UserStatus?
-            if let encStatus = partnerData["encryptedStatus"] as? String,
-               let statusRaw = EncryptionManager.shared.decryptOrNil(encStatus) {
-                status = UserStatus(rawValue: statusRaw)
-            }
-
-            let message = EncryptionManager.shared.decryptOrNil(
-                partnerData["encryptedMessage"] as? String
-            )
-
+            let fields = decryptFields(from: partnerData)
             let lastUpdated = (partnerData["lastUpdatedAt"] as? Timestamp)?.dateValue()
+            let (distance, city) = await computeDistanceWithGeocode(from: partnerData)
 
-            // Parse heartbeat if present
-            var heartbeatBpm: Int?
-            if let encHB = partnerData["encryptedHeartbeat"] as? String,
-               let json = EncryptionManager.shared.decryptOrNil(encHB),
-               let jsonData = json.data(using: .utf8),
-               let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
-                heartbeatBpm = dict["bpm"] as? Int
-            }
-
-            // Parse location + compute distance if available
-            var distanceMiles: Double?
-            var partnerCity: String?
-            #if canImport(CoreLocation)
-            if let encLoc = partnerData["encryptedLocation"] as? String,
-               let locJSON = EncryptionManager.shared.decryptOrNil(encLoc),
-               let locData = locJSON.data(using: .utf8),
-               let locDict = try? JSONSerialization.jsonObject(with: locData) as? [String: Any],
-               let partnerLat = locDict["lat"] as? Double,
-               let partnerLon = locDict["lon"] as? Double,
-               let myLat = LocationManager.shared.latitude,
-               let myLon = LocationManager.shared.longitude {
-                distanceMiles = LocationManager.haversineDistance(
-                    lat1: myLat, lon1: myLon,
-                    lat2: partnerLat, lon2: partnerLon
-                )
-                partnerCity = await LocationManager.reverseGeocode(
-                    lat: partnerLat, lon: partnerLon
-                )
-            }
-            #endif
-
-            // Parse prompt answer if present
             if let encPrompt = partnerData["encryptedPromptAnswer"] as? String {
-                DailyPromptManager.shared.receivePartnerAnswer(
-                    encryptedAnswer: encPrompt
-                )
+                DailyPromptManager.shared.receivePartnerAnswer(encryptedAnswer: encPrompt)
             }
 
-            // 4. Write decrypted data to App Group (this also calls reloadAllTimelines)
-            await FirebaseManager.shared.writePartnerDataToAppGroup(
-                name: name,
-                status: status,
-                message: message,
-                lastUpdated: lastUpdated,
-                heartbeatBpm: heartbeatBpm,
-                distanceMiles: distanceMiles,
-                partnerCity: partnerCity
+            await distributePartnerData(
+                fields: fields, lastUpdated: lastUpdated,
+                distanceMiles: distance, partnerCity: city
             )
 
-            // 5. Sync to Apple Watch if available
-            #if os(iOS)
-            WatchSyncManager.shared.syncPartnerData(
-                name: name,
-                status: status?.rawValue,
-                statusEmoji: status?.emoji,
-                message: message,
-                lastUpdated: lastUpdated,
-                heartbeatBpm: heartbeatBpm,
-                distanceMiles: distanceMiles,
-                promptText: DailyPromptManager.shared.todaysPrompt?.text,
-                partnerPromptAnswer: DailyPromptManager.shared.partnerAnswer
-            )
-            #endif
-
-            logger.info("Background refresh success: \(name), status=\(status?.rawValue ?? "nil")")
+            logger.info("Background refresh success: \(fields.name), status=\(fields.status?.rawValue ?? "nil")")
             return .newData
         } catch {
             logger.error("Background refresh failed: \(error.localizedDescription)")
@@ -372,7 +223,106 @@ final class PushManager: NSObject {
         }
     }
 
-    // MARK: - Handle Incoming Push (Legacy sync — used when app is foregrounded)
+    // MARK: - Shared Helpers
+
+    private struct DecryptedFields {
+        let name: String
+        let status: UserStatus?
+        let message: String?
+        let heartbeatBpm: Int?
+    }
+
+    /// Decrypts name, status, message, and heartbeat from any key-value source.
+    private func decryptFields(from data: [AnyHashable: Any]) -> DecryptedFields {
+        let name = EncryptionManager.shared.decryptOrNil(
+            data["encryptedName"] as? String
+        ) ?? "Your person"
+
+        var status: UserStatus?
+        if let encStatus = data["encryptedStatus"] as? String,
+           let raw = EncryptionManager.shared.decryptOrNil(encStatus) {
+            status = UserStatus(rawValue: raw)
+        }
+
+        let message = EncryptionManager.shared.decryptOrNil(
+            data["encryptedMessage"] as? String
+        )
+
+        var heartbeatBpm: Int?
+        if let encHB = data["encryptedHeartbeat"] as? String,
+           let json = EncryptionManager.shared.decryptOrNil(encHB),
+           let jsonData = json.data(using: .utf8),
+           let dict = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] {
+            heartbeatBpm = dict["bpm"] as? Int
+        }
+
+        return DecryptedFields(name: name, status: status, message: message, heartbeatBpm: heartbeatBpm)
+    }
+
+    /// Computes distance from encrypted location (no geocode).
+    private func computeDistance(from data: [AnyHashable: Any]) -> Double? {
+        #if canImport(CoreLocation)
+        guard let encLoc = data["encryptedLocation"] as? String,
+              let locJSON = EncryptionManager.shared.decryptOrNil(encLoc),
+              let locData = locJSON.data(using: .utf8),
+              let locDict = try? JSONSerialization.jsonObject(with: locData) as? [String: Any],
+              let partnerLat = locDict["lat"] as? Double,
+              let partnerLon = locDict["lon"] as? Double,
+              let myLat = LocationManager.shared.latitude,
+              let myLon = LocationManager.shared.longitude else { return nil }
+        return LocationManager.haversineDistance(
+            lat1: myLat, lon1: myLon, lat2: partnerLat, lon2: partnerLon
+        )
+        #else
+        return nil
+        #endif
+    }
+
+    /// Computes distance and reverse geocodes partner city.
+    private func computeDistanceWithGeocode(
+        from data: [AnyHashable: Any]
+    ) async -> (Double?, String?) {
+        #if canImport(CoreLocation)
+        guard let encLoc = data["encryptedLocation"] as? String,
+              let locJSON = EncryptionManager.shared.decryptOrNil(encLoc),
+              let locData = locJSON.data(using: .utf8),
+              let locDict = try? JSONSerialization.jsonObject(with: locData) as? [String: Any],
+              let partnerLat = locDict["lat"] as? Double,
+              let partnerLon = locDict["lon"] as? Double,
+              let myLat = LocationManager.shared.latitude,
+              let myLon = LocationManager.shared.longitude else { return (nil, nil) }
+        let distance = LocationManager.haversineDistance(
+            lat1: myLat, lon1: myLon, lat2: partnerLat, lon2: partnerLon
+        )
+        let city = await LocationManager.reverseGeocode(lat: partnerLat, lon: partnerLon)
+        return (distance, city)
+        #else
+        return (nil, nil)
+        #endif
+    }
+
+    /// Writes partner data to App Group and syncs to Apple Watch.
+    private func distributePartnerData(
+        fields: DecryptedFields, lastUpdated: Date?,
+        distanceMiles: Double?, partnerCity: String?
+    ) async {
+        await FirebaseManager.shared.writePartnerDataToAppGroup(
+            name: fields.name, status: fields.status, message: fields.message,
+            lastUpdated: lastUpdated, heartbeatBpm: fields.heartbeatBpm,
+            distanceMiles: distanceMiles, partnerCity: partnerCity
+        )
+        #if os(iOS)
+        WatchSyncManager.shared.syncPartnerData(
+            name: fields.name, status: fields.status?.rawValue,
+            statusEmoji: fields.status?.emoji,
+            message: fields.message, lastUpdated: lastUpdated,
+            heartbeatBpm: fields.heartbeatBpm, distanceMiles: distanceMiles,
+            promptText: DailyPromptManager.shared.todaysPrompt?.text,
+            partnerPromptAnswer: DailyPromptManager.shared.partnerAnswer
+        )
+        #endif
+    }
+
     // MARK: - App Group Cleanup
 
     private func clearAppGroup() {

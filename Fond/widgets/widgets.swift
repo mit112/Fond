@@ -100,8 +100,21 @@ struct FondTimelineProvider: AppIntentTimelineProvider {
 
         // Daily relevance around morning check-in
         let calendar = Calendar.current
-        if let morningStart = calendar.date(bySettingHour: FondConstants.relevanceMorningHour - 1, minute: 60 - FondConstants.relevanceWindowLeadMinutes, second: 0, of: .now),
-           let morningEnd = calendar.date(bySettingHour: FondConstants.relevanceMorningHour, minute: FondConstants.relevanceWindowTrailMinutes, second: 0, of: .now),
+        let leadMin = FondConstants.relevanceWindowLeadMinutes
+        let trailMin = FondConstants.relevanceWindowTrailMinutes
+
+        if let morningStart = calendar.date(
+            bySettingHour: FondConstants.relevanceMorningHour - 1,
+            minute: 60 - leadMin,
+            second: 0,
+            of: .now
+        ),
+           let morningEnd = calendar.date(
+            bySettingHour: FondConstants.relevanceMorningHour,
+            minute: trailMin,
+            second: 0,
+            of: .now
+           ),
            morningEnd > .now {
             attributes.append(WidgetRelevanceAttribute(
                 configuration: config,
@@ -110,8 +123,18 @@ struct FondTimelineProvider: AppIntentTimelineProvider {
         }
 
         // Daily relevance around evening check-in
-        if let eveningStart = calendar.date(bySettingHour: FondConstants.relevanceEveningHour - 1, minute: 60 - FondConstants.relevanceWindowLeadMinutes, second: 0, of: .now),
-           let eveningEnd = calendar.date(bySettingHour: FondConstants.relevanceEveningHour, minute: FondConstants.relevanceWindowTrailMinutes, second: 0, of: .now),
+        if let eveningStart = calendar.date(
+            bySettingHour: FondConstants.relevanceEveningHour - 1,
+            minute: 60 - leadMin,
+            second: 0,
+            of: .now
+        ),
+           let eveningEnd = calendar.date(
+            bySettingHour: FondConstants.relevanceEveningHour,
+            minute: trailMin,
+            second: 0,
+            of: .now
+           ),
            eveningEnd > .now {
             attributes.append(WidgetRelevanceAttribute(
                 configuration: config,

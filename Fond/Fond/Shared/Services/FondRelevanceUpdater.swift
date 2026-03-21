@@ -34,98 +34,20 @@ struct FondRelevanceUpdater {
 
         var relevantIntents: [RelevantIntent] = []
 
-        // MARK: - FondWidget relevance
-
-        let fondConfig = FondWidgetConfigIntent()
-
-        // Boost after partner's last update
-        if let lastUpdated = defaults?.object(forKey: FondConstants.partnerLastUpdatedKey) as? Date {
-            let boostEnd = lastUpdated.addingTimeInterval(Double(FondConstants.relevancePartnerBoostMinutes) * 60)
-            if boostEnd > .now {
-                relevantIntents.append(RelevantIntent(
-                    fondConfig,
-                    widgetKind: "FondWidget",
-                    relevance: .date(range: lastUpdated...boostEnd, kind: .scheduled)
-                ))
-            }
-        }
-
-        // Morning check-in
-        if let morningStart = calendar.date(bySettingHour: FondConstants.relevanceMorningHour - 1, minute: 60 - FondConstants.relevanceWindowLeadMinutes, second: 0, of: .now),
-           let morningEnd = calendar.date(bySettingHour: FondConstants.relevanceMorningHour, minute: FondConstants.relevanceWindowTrailMinutes, second: 0, of: .now),
-           morningEnd > .now {
-            relevantIntents.append(RelevantIntent(
-                fondConfig,
-                widgetKind: "FondWidget",
-                relevance: .date(range: morningStart...morningEnd, kind: .scheduled)
-            ))
-        }
-
-        // Evening check-in
-        if let eveningStart = calendar.date(bySettingHour: FondConstants.relevanceEveningHour - 1, minute: 60 - FondConstants.relevanceWindowLeadMinutes, second: 0, of: .now),
-           let eveningEnd = calendar.date(bySettingHour: FondConstants.relevanceEveningHour, minute: FondConstants.relevanceWindowTrailMinutes, second: 0, of: .now),
-           eveningEnd > .now {
-            relevantIntents.append(RelevantIntent(
-                fondConfig,
-                widgetKind: "FondWidget",
-                relevance: .date(range: eveningStart...eveningEnd, kind: .scheduled)
-            ))
-        }
-
-        // MARK: - FondDateWidget relevance
-
-        let dateConfig = FondDateWidgetConfigIntent()
-
-        // Midnight -- day count changes
-        let tomorrow = calendar.startOfDay(
-            for: calendar.date(byAdding: .day, value: 1, to: .now) ?? .now.addingTimeInterval(86400)
+        appendFondWidgetEntries(
+            to: &relevantIntents,
+            defaults: defaults,
+            calendar: calendar
         )
-        let midnightStart = tomorrow.addingTimeInterval(Double(-FondConstants.relevanceMidnightWindowMinutes) * 60)
-        let midnightEnd = tomorrow.addingTimeInterval(Double(FondConstants.relevanceMidnightWindowMinutes) * 60)
-        relevantIntents.append(RelevantIntent(
-            dateConfig,
-            widgetKind: "FondDateWidget",
-            relevance: .date(range: midnightStart...midnightEnd, kind: .scheduled)
-        ))
-
-        // Countdown date -- boost all day
-        if let countdownDate = defaults?.object(forKey: FondConstants.countdownDateKey) as? Date {
-            let countdownStart = calendar.startOfDay(for: countdownDate)
-            let countdownEnd = countdownStart.addingTimeInterval(24 * 60 * 60)
-            if countdownEnd > .now {
-                relevantIntents.append(RelevantIntent(
-                    dateConfig,
-                    widgetKind: "FondDateWidget",
-                    relevance: .date(range: countdownStart...countdownEnd, kind: .scheduled)
-                ))
-            }
-        }
-
-        // MARK: - FondDistanceWidget relevance
-
-        let distanceConfig = FondDistanceWidgetConfigIntent()
-
-        // Morning commute
-        if let morningStart = calendar.date(bySettingHour: FondConstants.relevanceCommuteAMHour - 1, minute: 60 - FondConstants.relevanceWindowLeadMinutes, second: 0, of: .now),
-           let morningEnd = calendar.date(bySettingHour: FondConstants.relevanceCommuteAMHour, minute: FondConstants.relevanceWindowTrailMinutes, second: 0, of: .now),
-           morningEnd > .now {
-            relevantIntents.append(RelevantIntent(
-                distanceConfig,
-                widgetKind: "FondDistanceWidget",
-                relevance: .date(range: morningStart...morningEnd, kind: .scheduled)
-            ))
-        }
-
-        // Evening commute
-        if let eveningStart = calendar.date(bySettingHour: FondConstants.relevanceCommutePMHour - 1, minute: 60 - FondConstants.relevanceWindowLeadMinutes, second: 0, of: .now),
-           let eveningEnd = calendar.date(bySettingHour: FondConstants.relevanceCommutePMHour, minute: FondConstants.relevanceWindowTrailMinutes, second: 0, of: .now),
-           eveningEnd > .now {
-            relevantIntents.append(RelevantIntent(
-                distanceConfig,
-                widgetKind: "FondDistanceWidget",
-                relevance: .date(range: eveningStart...eveningEnd, kind: .scheduled)
-            ))
-        }
+        appendDateWidgetEntries(
+            to: &relevantIntents,
+            defaults: defaults,
+            calendar: calendar
+        )
+        appendDistanceWidgetEntries(
+            to: &relevantIntents,
+            calendar: calendar
+        )
 
         do {
             try await RelevantIntentManager.shared.updateRelevantIntents(relevantIntents)
@@ -133,6 +55,164 @@ struct FondRelevanceUpdater {
         } catch {
             logger.error("Failed to update relevance: \(error.localizedDescription)")
         }
+    }
+
+    // MARK: - FondWidget relevance
+
+    private static func appendFondWidgetEntries(
+        to intents: inout [RelevantIntent],
+        defaults: UserDefaults?,
+        calendar: Calendar
+    ) {
+        let config = FondWidgetConfigIntent()
+
+        // Boost after partner's last update
+        if let lastUpdated = defaults?.object(
+            forKey: FondConstants.partnerLastUpdatedKey
+        ) as? Date {
+            let boostMinutes = FondConstants.relevancePartnerBoostMinutes
+            let boostEnd = lastUpdated.addingTimeInterval(Double(boostMinutes) * 60)
+            if boostEnd > .now {
+                intents.append(RelevantIntent(
+                    config,
+                    widgetKind: "FondWidget",
+                    relevance: .date(
+                        range: lastUpdated...boostEnd,
+                        kind: .scheduled
+                    )
+                ))
+            }
+        }
+
+        // Morning check-in
+        if let window = timeWindow(
+            calendar: calendar,
+            hour: FondConstants.relevanceMorningHour
+        ) {
+            intents.append(RelevantIntent(
+                config,
+                widgetKind: "FondWidget",
+                relevance: .date(range: window, kind: .scheduled)
+            ))
+        }
+
+        // Evening check-in
+        if let window = timeWindow(
+            calendar: calendar,
+            hour: FondConstants.relevanceEveningHour
+        ) {
+            intents.append(RelevantIntent(
+                config,
+                widgetKind: "FondWidget",
+                relevance: .date(range: window, kind: .scheduled)
+            ))
+        }
+    }
+
+    // MARK: - FondDateWidget relevance
+
+    private static func appendDateWidgetEntries(
+        to intents: inout [RelevantIntent],
+        defaults: UserDefaults?,
+        calendar: Calendar
+    ) {
+        let config = FondDateWidgetConfigIntent()
+
+        // Midnight -- day count changes
+        let tomorrow = calendar.startOfDay(
+            for: calendar.date(byAdding: .day, value: 1, to: .now)
+                ?? .now.addingTimeInterval(86400)
+        )
+        let windowMinutes = FondConstants.relevanceMidnightWindowMinutes
+        let midnightStart = tomorrow.addingTimeInterval(Double(-windowMinutes) * 60)
+        let midnightEnd = tomorrow.addingTimeInterval(Double(windowMinutes) * 60)
+        intents.append(RelevantIntent(
+            config,
+            widgetKind: "FondDateWidget",
+            relevance: .date(
+                range: midnightStart...midnightEnd,
+                kind: .scheduled
+            )
+        ))
+
+        // Countdown date -- boost all day
+        if let countdownDate = defaults?.object(
+            forKey: FondConstants.countdownDateKey
+        ) as? Date {
+            let countdownStart = calendar.startOfDay(for: countdownDate)
+            let countdownEnd = countdownStart.addingTimeInterval(24 * 60 * 60)
+            if countdownEnd > .now {
+                intents.append(RelevantIntent(
+                    config,
+                    widgetKind: "FondDateWidget",
+                    relevance: .date(
+                        range: countdownStart...countdownEnd,
+                        kind: .scheduled
+                    )
+                ))
+            }
+        }
+    }
+
+    // MARK: - FondDistanceWidget relevance
+
+    private static func appendDistanceWidgetEntries(
+        to intents: inout [RelevantIntent],
+        calendar: Calendar
+    ) {
+        let config = FondDistanceWidgetConfigIntent()
+
+        // Morning commute
+        if let window = timeWindow(
+            calendar: calendar,
+            hour: FondConstants.relevanceCommuteAMHour
+        ) {
+            intents.append(RelevantIntent(
+                config,
+                widgetKind: "FondDistanceWidget",
+                relevance: .date(range: window, kind: .scheduled)
+            ))
+        }
+
+        // Evening commute
+        if let window = timeWindow(
+            calendar: calendar,
+            hour: FondConstants.relevanceCommutePMHour
+        ) {
+            intents.append(RelevantIntent(
+                config,
+                widgetKind: "FondDistanceWidget",
+                relevance: .date(range: window, kind: .scheduled)
+            ))
+        }
+    }
+
+    // MARK: - Helpers
+
+    /// Computes a relevance time window around the given hour,
+    /// returning `nil` if the window has already passed.
+    private static func timeWindow(
+        calendar: Calendar,
+        hour: Int
+    ) -> ClosedRange<Date>? {
+        let leadMinutes = FondConstants.relevanceWindowLeadMinutes
+        let trailMinutes = FondConstants.relevanceWindowTrailMinutes
+        guard let start = calendar.date(
+            bySettingHour: hour - 1,
+            minute: 60 - leadMinutes,
+            second: 0,
+            of: .now
+        ),
+        let end = calendar.date(
+            bySettingHour: hour,
+            minute: trailMinutes,
+            second: 0,
+            of: .now
+        ),
+        end > .now else {
+            return nil
+        }
+        return start...end
     }
 }
 

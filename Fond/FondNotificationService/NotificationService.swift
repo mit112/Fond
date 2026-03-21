@@ -100,24 +100,52 @@ class NotificationService: UNNotificationServiceExtension {
 
         let key = SymmetricKey(data: keyData)
 
-        // 2. Extract and decrypt encrypted fields from push payload
-        //    FCM data fields appear at the top level of userInfo.
+        // 2. Decrypt all fields from push payload
+        let decrypted = decryptPayload(userInfo: userInfo, key: key)
+
+        // 3. Write decrypted data to App Group UserDefaults
+        writeToAppGroup(decrypted)
+
+        // 4. Reload widget timelines — data is now fresh in App Group
+        WidgetCenter.shared.reloadAllTimelines()
+
+        // 5. Modify notification content based on type
+        updateNotificationContent(
+            bestAttemptContent,
+            type: type,
+            partnerName: decrypted.partnerName,
+            message: decrypted.message,
+            heartbeatBpm: decrypted.heartbeatBpm
+        )
+    }
+
+    // MARK: - Payload Decryption
+
+    /// Holds all decrypted fields from the push payload.
+    private struct DecryptedPayload {
+        let partnerName: String?
+        let status: UserStatus?
+        let message: String?
+        let heartbeatBpm: Int?
+        let promptAnswer: String?
+    }
+
+    /// Extracts and decrypts all encrypted fields from the push payload.
+    /// FCM data fields appear at the top level of userInfo.
+    private func decryptPayload(userInfo: [AnyHashable: Any], key: SymmetricKey) -> DecryptedPayload {
         let partnerName = decryptField(userInfo["encryptedName"] as? String, using: key)
         let statusRaw = decryptField(userInfo["encryptedStatus"] as? String, using: key)
         let message = decryptField(userInfo["encryptedMessage"] as? String, using: key)
+        let promptAnswer = decryptField(userInfo["encryptedPromptAnswer"] as? String, using: key)
 
         let status: UserStatus? = statusRaw.flatMap { UserStatus(rawValue: $0) }
 
-        // Heartbeat
         var heartbeatBpm: Int?
         if let heartbeatJSON = decryptField(userInfo["encryptedHeartbeat"] as? String, using: key),
            let data = heartbeatJSON.data(using: .utf8),
            let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
             heartbeatBpm = dict["bpm"] as? Int
         }
-
-        // Prompt answer
-        let promptAnswer = decryptField(userInfo["encryptedPromptAnswer"] as? String, using: key)
 
         NSLog(
             "[FondNSE] Decrypted: name=%@, status=%@, message=%@, heartbeat=%@",
@@ -127,59 +155,78 @@ class NotificationService: UNNotificationServiceExtension {
             heartbeatBpm != nil ? "\(heartbeatBpm!)" : "nil"
         )
 
-        // 3. Write decrypted data to App Group UserDefaults
-        if let defaults = UserDefaults(suiteName: FondConstants.appGroupID) {
-            if let name = partnerName {
-                defaults.set(name, forKey: FondConstants.partnerNameKey)
-            }
-            if let status {
-                defaults.set(status.rawValue, forKey: FondConstants.partnerStatusKey)
-            }
-            // Always write message (nil clears the previous message)
-            defaults.set(message, forKey: FondConstants.partnerMessageKey)
-            defaults.set(Date(), forKey: FondConstants.partnerLastUpdatedKey)
-            defaults.set(ConnectionState.connected.rawValue, forKey: FondConstants.connectionStateKey)
+        return DecryptedPayload(
+            partnerName: partnerName,
+            status: status,
+            message: message,
+            heartbeatBpm: heartbeatBpm,
+            promptAnswer: promptAnswer
+        )
+    }
 
-            if let bpm = heartbeatBpm {
-                defaults.set(bpm, forKey: FondConstants.partnerHeartbeatKey)
-                defaults.set(Date(), forKey: FondConstants.partnerHeartbeatTimeKey)
-            }
+    // MARK: - App Group Writing
 
-            if let answer = promptAnswer {
-                defaults.set(answer, forKey: FondConstants.partnerPromptAnswerKey)
-            }
+    /// Writes decrypted partner data to App Group UserDefaults for widget consumption.
+    private func writeToAppGroup(_ payload: DecryptedPayload) {
+        guard let defaults = UserDefaults(suiteName: FondConstants.appGroupID) else { return }
+
+        if let name = payload.partnerName {
+            defaults.set(name, forKey: FondConstants.partnerNameKey)
+        }
+        if let status = payload.status {
+            defaults.set(status.rawValue, forKey: FondConstants.partnerStatusKey)
+        }
+        // Always write message (nil clears the previous message)
+        defaults.set(payload.message, forKey: FondConstants.partnerMessageKey)
+        defaults.set(Date(), forKey: FondConstants.partnerLastUpdatedKey)
+        defaults.set(ConnectionState.connected.rawValue, forKey: FondConstants.connectionStateKey)
+
+        if let bpm = payload.heartbeatBpm {
+            defaults.set(bpm, forKey: FondConstants.partnerHeartbeatKey)
+            defaults.set(Date(), forKey: FondConstants.partnerHeartbeatTimeKey)
         }
 
-        // 4. Reload widget timelines — data is now fresh in App Group
-        WidgetCenter.shared.reloadAllTimelines()
+        if let answer = payload.promptAnswer {
+            defaults.set(answer, forKey: FondConstants.partnerPromptAnswerKey)
+        }
+    }
 
-        // 5. Modify notification content based on type
+    // MARK: - Notification Content
+
+    /// Modifies the notification's visible content based on the push type.
+    private func updateNotificationContent(
+        _ content: UNMutableNotificationContent,
+        type: String,
+        partnerName: String?,
+        message: String?,
+        heartbeatBpm: Int?
+    ) {
         let displayName = partnerName ?? "Your person"
 
         switch type {
         case "status", "promptAnswer":
             // Suppress visible notification — the widget update is enough.
             // Setting empty title+body prevents iOS from showing a banner.
-            bestAttemptContent.title = ""
-            bestAttemptContent.body = ""
-            bestAttemptContent.sound = nil
+            content.title = ""
+            content.body = ""
+            content.sound = nil
 
         case "message":
             // Show decrypted message content in the notification
-            bestAttemptContent.title = displayName
+            content.title = displayName
             if let message, !message.isEmpty {
-                bestAttemptContent.body = message
+                content.body = message
             }
             // else: keep the original generic body from the push payload
 
         case "nudge":
-            bestAttemptContent.title = displayName
-            bestAttemptContent.body = "is thinking of you 💛"
+            content.title = displayName
+            content.body = "is thinking of you 💛"
 
         case "heartbeat":
-            bestAttemptContent.title = displayName
+            content.title = displayName
             if let bpm = heartbeatBpm {
-                bestAttemptContent.body = "sent you a heartbeat ❤️ \(bpm) bpm"
+                content.body = "sent you a heartbeat ❤️ \(bpm) bpm"
             }
 
         default:

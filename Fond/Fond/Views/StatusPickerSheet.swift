@@ -59,14 +59,12 @@ struct StatusPickerSheet: View {
 
     private func statusSection(_ category: UserStatus.Category) -> some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Section header
-            Text(category.rawValue.uppercased())
-                .font(.caption.weight(.semibold))
-                .foregroundStyle(FondColors.textSecondary)
-                .tracking(1.2)
+            Text(category.rawValue)
+                .font(.caption.weight(.medium))
+                .foregroundStyle(FondColors.amber.opacity(0.8))
+                .tracking(0.3)
                 .padding(.leading, 4)
 
-            // Status grid
             LazyVGrid(columns: columns, spacing: 10) {
                 ForEach(category.statuses, id: \.self) { status in
                     statusCell(status)

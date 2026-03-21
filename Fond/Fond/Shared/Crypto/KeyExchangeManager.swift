@@ -52,8 +52,8 @@ final class KeyExchangeManager: Sendable {
         // This produces a different key — incompatible with any prior derivation.
         let symmetricKey = sharedSecret.hkdfDerivedSymmetricKey(
             using: SHA256.self,
-            salt: "Fond-v1".data(using: .utf8)!,
-            sharedInfo: "Fond-E2E-v1".data(using: .utf8)!,
+            salt: Data("Fond-v1".utf8),
+            sharedInfo: Data("Fond-E2E-v1".utf8),
             outputByteCount: 32
         )
 

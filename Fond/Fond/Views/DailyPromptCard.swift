@@ -28,61 +28,57 @@ struct DailyPromptCard: View {
 
     var body: some View {
         if let prompt = promptManager.todaysPrompt {
-            VStack(alignment: .leading, spacing: 12) {
+            VStack(alignment: .leading, spacing: 14) {
                 // Header — tap to expand/collapse
                 Button {
                     withAnimation(.fondSpring) {
                         isExpanded.toggle()
                     }
                 } label: {
-                    HStack(spacing: 10) {
-                        Text("💬")
-                            .font(.title3)
+                    VStack(alignment: .leading, spacing: 8) {
+                        HStack {
+                            Text("Today's Question")
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(FondColors.amber)
+                                .tracking(0.3)
 
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("TODAY'S QUESTION")
-                                .font(.caption2.weight(.semibold))
-                                .foregroundStyle(FondColors.textSecondary)
-                                .tracking(0.8)
+                            Spacer()
 
-                            Text(prompt.text)
-                                .font(.subheadline)
-                                .foregroundStyle(FondColors.text)
-                                .lineLimit(isExpanded ? nil : 2)
-                                .multilineTextAlignment(.leading)
+                            promptStatusIcon
                         }
 
-                        Spacer()
-
-                        // Status indicator
-                        promptStatusIcon
+                        Text(prompt.text)
+                            .font(.callout.italic().weight(.medium))
+                            .fontDesign(.serif)
+                            .foregroundStyle(FondColors.text)
+                            .lineLimit(2)
+                            .multilineTextAlignment(.leading)
+                            .fixedSize(horizontal: false, vertical: true)
                     }
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
 
                 // Expanded content
                 if isExpanded {
-                    Divider()
-                        .opacity(0.3)
+                    Rectangle()
+                        .fill(FondColors.amber.opacity(0.15))
+                        .frame(height: 1)
 
-                    // Show based on answer state
                     if promptManager.isSubmitted && promptManager.partnerAnswer != nil {
-                        // Both answered — reveal!
                         bothAnswersView
                     } else if promptManager.isSubmitted {
-                        // I answered, waiting for partner
                         waitingView
                     } else {
-                        // Not yet answered — show input
                         answerInput
                     }
                 }
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 14)
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
             .fondGlass(
                 in: RoundedRectangle(cornerRadius: 16, style: .continuous),
-                tinted: false
+                tinted: true
             )
             .onAppear {
                 promptManager.computeTodaysPrompt()
@@ -115,18 +111,18 @@ struct DailyPromptCard: View {
     private var answerInput: some View {
         VStack(spacing: 10) {
             HStack(spacing: 10) {
-                TextField("Your answer...", text: $answerText, axis: .vertical)
-                    .font(.body)
+                TextField("What do you think?", text: $answerText, axis: .vertical)
+                    .font(.callout)
                     .lineLimit(1...4)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
                     .background(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(FondColors.surface.opacity(0.5))
+                            .fill(FondColors.surface.opacity(0.4))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .stroke(FondColors.textSecondary.opacity(0.15), lineWidth: 1)
+                            .stroke(FondColors.amber.opacity(0.12), lineWidth: 1)
                     )
                     .submitLabel(.send)
                     .onSubmit { submitAnswer() }
@@ -165,25 +161,24 @@ struct DailyPromptCard: View {
     // MARK: - Waiting View
 
     private var waitingView: some View {
-        VStack(spacing: 8) {
+        VStack(spacing: 10) {
             if let myAnswer = promptManager.myAnswer {
-                HStack {
+                VStack(alignment: .leading, spacing: 4) {
                     Text("You")
-                        .font(.caption.weight(.semibold))
+                        .font(.caption2.weight(.semibold))
                         .foregroundStyle(FondColors.amber)
-                    Spacer()
-                }
 
-                Text(myAnswer)
-                    .font(.body)
-                    .foregroundStyle(FondColors.text)
-                    .padding(.horizontal, 14)
-                    .padding(.vertical, 10)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(
-                        RoundedRectangle(cornerRadius: 14, style: .continuous)
-                            .fill(FondColors.bubbleMine)
-                    )
+                    Text(myAnswer)
+                        .font(.callout)
+                        .foregroundStyle(FondColors.text)
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .background(
+                            RoundedRectangle(cornerRadius: 14, style: .continuous)
+                                .fill(FondColors.bubbleMine)
+                        )
+                }
             }
 
             HStack(spacing: 6) {
@@ -193,7 +188,6 @@ struct DailyPromptCard: View {
                     .font(.caption)
                     .foregroundStyle(FondColors.textSecondary)
             }
-            .padding(.top, 4)
         }
         .transition(.opacity.combined(with: .move(edge: .top)))
     }
@@ -202,13 +196,12 @@ struct DailyPromptCard: View {
 
     private var bothAnswersView: some View {
         VStack(spacing: 12) {
-            // My answer
             VStack(alignment: .leading, spacing: 4) {
                 Text("You")
-                    .font(.caption.weight(.semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(FondColors.amber)
                 Text(promptManager.myAnswer ?? "")
-                    .font(.body)
+                    .font(.callout)
                     .foregroundStyle(FondColors.text)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)
@@ -219,13 +212,12 @@ struct DailyPromptCard: View {
                     )
             }
 
-            // Partner's answer
             VStack(alignment: .leading, spacing: 4) {
                 Text(partnerName)
-                    .font(.caption.weight(.semibold))
+                    .font(.caption2.weight(.semibold))
                     .foregroundStyle(FondColors.lavender)
                 Text(promptManager.partnerAnswer ?? "")
-                    .font(.body)
+                    .font(.callout)
                     .foregroundStyle(FondColors.text)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 10)

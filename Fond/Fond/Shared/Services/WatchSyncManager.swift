@@ -38,7 +38,7 @@ final class WatchSyncManager: NSObject, WCSessionDelegate, @unchecked Sendable {
     }
     private let connectionState = OSAllocatedUnfairLock(initialState: ConnectionInfo())
 
-    private override init() {
+    override private init() {
         super.init()
     }
 
