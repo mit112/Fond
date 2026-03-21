@@ -15,7 +15,6 @@ struct ConnectedMessageInput: View {
     let sendSuccess: Bool
     let cooldownRemaining: Int
     let errorMessage: String?
-    var lastSentMessage: String? = nil  // kept for backward compat; echo shown in ContextualCardView
     let onSend: () -> Void
     var onStatusTap: (() -> Void)? = nil
 
