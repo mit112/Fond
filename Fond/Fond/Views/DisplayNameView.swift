@@ -30,7 +30,7 @@ struct DisplayNameView: View {
 
     var body: some View {
         ZStack {
-            FondMeshGradient()
+            FondOnboardingBackground()
 
             VStack(spacing: 0) {
                 Spacer()
@@ -39,12 +39,12 @@ struct DisplayNameView: View {
                 VStack(spacing: 10) {
                     Text("What should your person call you?")
                         .font(.title2.bold())
-                        .foregroundStyle(FondColors.text)
+                        .foregroundStyle(FondColors.ink)
                         .multilineTextAlignment(.center)
 
                     Text("This is what your partner will see on their widgets.")
                         .font(.subheadline)
-                        .foregroundStyle(FondColors.textSecondary)
+                        .foregroundStyle(FondColors.inkSecondary)
                         .multilineTextAlignment(.center)
                 }
                 .padding(.horizontal, 32)
@@ -60,11 +60,11 @@ struct DisplayNameView: View {
                     .padding(.vertical, 14)
                     .background(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .fill(FondColors.surface.opacity(0.6))
+                            .fill(FondColors.keepsake.opacity(0.6))
                     )
                     .overlay(
                         RoundedRectangle(cornerRadius: 16, style: .continuous)
-                            .stroke(FondColors.textSecondary.opacity(0.15), lineWidth: 1)
+                            .stroke(FondColors.inkSecondary.opacity(0.15), lineWidth: 1)
                     )
                     .focused($isFocused)
                     .submitLabel(.done)
@@ -74,7 +74,7 @@ struct DisplayNameView: View {
                 // Character count
                 Text("\(trimmedName.count)/30")
                     .font(.caption.monospacedDigit())
-                    .foregroundStyle(FondColors.textSecondary)
+                    .foregroundStyle(FondColors.inkSecondary)
                     .contentTransition(.numericText())
                     .padding(.top, 8)
 
@@ -99,7 +99,7 @@ struct DisplayNameView: View {
                     .frame(height: 52)
                 }
                 .disabled(!isValid || isSaving)
-                .fondGlassInteractive(
+                .fondFloatingControl(
                     in: RoundedRectangle(cornerRadius: 14, style: .continuous),
                     tinted: true
                 )
@@ -111,7 +111,7 @@ struct DisplayNameView: View {
                 if let error = errorMessage {
                     Text(error)
                         .font(.caption)
-                        .foregroundStyle(FondColors.rose)
+                        .foregroundStyle(FondColors.ink)
                         .padding(.top, 12)
                 }
 

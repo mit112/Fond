@@ -89,7 +89,7 @@ struct StatusPickerSheet: View {
                 Text(status.displayName)
                     .font(.caption2.weight(.medium))
                     .foregroundStyle(
-                        isSelected ? FondColors.text : FondColors.textSecondary
+                        isSelected ? FondColors.ink : FondColors.inkSecondary
                     )
                     .lineLimit(1)
                     .minimumScaleFactor(0.8)
@@ -98,7 +98,7 @@ struct StatusPickerSheet: View {
             .padding(.vertical, 10)
         }
         .buttonStyle(.plain)
-        .fondGlassInteractive(
+        .fondFloatingControl(
             in: RoundedRectangle(cornerRadius: 14, style: .continuous),
             tinted: isSelected
         )

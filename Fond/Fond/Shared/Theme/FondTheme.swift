@@ -10,8 +10,8 @@ struct FondField: View {
     }
 }
 
-// Temporary onboarding compatibility. The connected experience uses FondField.
-struct FondMeshGradient: View {
+// Onboarding keeps its calm animated field while the connected experience uses FondField.
+struct FondOnboardingBackground: View {
     #if os(watchOS)
     var body: some View {
         LinearGradient(
@@ -95,15 +95,18 @@ private struct FondKeepsakeModifier: ViewModifier {
 
 private struct FondFloatingControlModifier<ControlShape: Shape>: ViewModifier {
     let shape: ControlShape
+    let tinted: Bool
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     @ViewBuilder
     func body(content: Content) -> some View {
         if reduceTransparency {
             content
-                .background(shape.fill(FondColors.controlFallback))
+                .background(shape.fill(tinted ? FondColors.amber : FondColors.controlFallback))
                 .overlay(shape.stroke(FondColors.rule, lineWidth: 1))
                 .shadow(color: FondColors.shadow.opacity(0.16), radius: 16, y: 6)
+        } else if tinted {
+            content.glassEffect(.regular.tint(FondColors.amber).interactive(), in: shape)
         } else {
             content.glassEffect(.regular.interactive(), in: shape)
         }
@@ -150,8 +153,11 @@ extension View {
         modifier(FondKeepsakeModifier())
     }
 
-    func fondFloatingControl(in shape: some Shape = Capsule()) -> some View {
-        modifier(FondFloatingControlModifier(shape: shape))
+    func fondFloatingControl(
+        in shape: some Shape = Capsule(),
+        tinted: Bool = false
+    ) -> some View {
+        modifier(FondFloatingControlModifier(shape: shape, tinted: tinted))
     }
 
     func fondControlPlate(in shape: some Shape = Capsule()) -> some View {
@@ -162,35 +168,6 @@ extension View {
         modifier(FondSendControlModifier())
     }
 
-    // Compatibility aliases retained while Tasks 3–6 migrate existing call sites.
-    func fondCard(cornerRadius _: CGFloat = FondGeometry.cardCornerRadius) -> some View {
-        fondKeepsakeCard()
-    }
-
-    @ViewBuilder
-    func fondGlass(in shape: some Shape = Capsule(), tinted: Bool = true) -> some View {
-        if tinted {
-            self.glassEffect(.regular.tint(FondColors.amber), in: shape)
-        } else {
-            self.glassEffect(.regular, in: shape)
-        }
-    }
-
-    @ViewBuilder
-    func fondGlassInteractive(
-        in shape: some Shape = Capsule(),
-        tinted: Bool = false
-    ) -> some View {
-        if tinted {
-            self.glassEffect(.regular.tint(FondColors.amber).interactive(), in: shape)
-        } else {
-            self.glassEffect(.regular.interactive(), in: shape)
-        }
-    }
-
-    func fondGlassPlain(in shape: some Shape = Capsule()) -> some View {
-        glassEffect(.regular, in: shape)
-    }
 }
 
 enum FondHaptics {

@@ -43,22 +43,22 @@ struct SettingsView: View {
                         } label: {
                             HStack {
                                 Label("Name", systemImage: "person")
-                                    .foregroundStyle(FondColors.text)
+                                    .foregroundStyle(FondColors.ink)
                                 Spacer()
                                 Text(user.displayName ?? "—")
-                                    .foregroundStyle(FondColors.textSecondary)
+                                    .foregroundStyle(FondColors.inkSecondary)
                                 Image(systemName: "chevron.right")
                                     .font(.caption.weight(.semibold))
-                                    .foregroundStyle(FondColors.textSecondary.opacity(0.5))
+                                    .foregroundStyle(FondColors.inkSecondary.opacity(0.5))
                             }
                         }
 
                         HStack {
                             Label("Email", systemImage: "envelope")
-                                .foregroundStyle(FondColors.text)
+                                .foregroundStyle(FondColors.ink)
                             Spacer()
                             Text(user.email ?? "Hidden")
-                                .foregroundStyle(FondColors.textSecondary)
+                                .foregroundStyle(FondColors.inkSecondary)
                         }
                     }
                 } header: {
@@ -70,7 +70,7 @@ struct SettingsView: View {
                 Section {
                     Toggle(isOn: $hasAnniversary) {
                         Label("Anniversary", systemImage: "heart.circle")
-                            .foregroundStyle(FondColors.text)
+                            .foregroundStyle(FondColors.ink)
                     }
                     .tint(FondColors.amber)
                     .onChange(of: hasAnniversary) { saveDates() }
@@ -88,7 +88,7 @@ struct SettingsView: View {
 
                     Toggle(isOn: $hasCountdown) {
                         Label("Countdown", systemImage: "calendar.badge.clock")
-                            .foregroundStyle(FondColors.text)
+                            .foregroundStyle(FondColors.ink)
                     }
                     .tint(FondColors.amber)
                     .onChange(of: hasCountdown) { saveDates() }
@@ -125,7 +125,7 @@ struct SettingsView: View {
                             }
                         }
                     }
-                    .foregroundStyle(FondColors.rose)
+                    .foregroundStyle(FondColors.ink)
                     .disabled(isUnlinking)
                 } header: {
                     Text("Connection")
@@ -137,13 +137,13 @@ struct SettingsView: View {
                     } label: {
                         Label("Sign Out", systemImage: "rectangle.portrait.and.arrow.right")
                     }
-                    .foregroundStyle(FondColors.rose)
+                    .foregroundStyle(FondColors.ink)
                 }
 
                 if let error = errorMessage {
                     Section {
                         Text(error)
-                            .foregroundStyle(FondColors.rose)
+                            .foregroundStyle(FondColors.ink)
                             .font(.caption)
                     }
                 }

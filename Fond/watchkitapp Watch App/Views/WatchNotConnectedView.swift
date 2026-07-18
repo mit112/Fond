@@ -11,21 +11,21 @@ import SwiftUI
 struct WatchNotConnectedView: View {
     var body: some View {
         ZStack {
-            FondMeshGradient()
+            FondOnboardingBackground()
 
             VStack(spacing: 16) {
                 Image(systemName: "heart.slash")
                     .font(.system(size: 36))
-                    .foregroundStyle(FondColors.textSecondary)
+                    .foregroundStyle(FondColors.inkSecondary)
                     .symbolEffect(.breathe)
 
                 Text("Not Connected")
                     .font(.headline)
-                    .foregroundStyle(FondColors.text)
+                    .foregroundStyle(FondColors.ink)
 
                 Text("Open Fond on your iPhone to pair with your person.")
                     .font(.footnote)
-                    .foregroundStyle(FondColors.textSecondary)
+                    .foregroundStyle(FondColors.inkSecondary)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 8)
             }

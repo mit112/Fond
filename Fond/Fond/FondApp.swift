@@ -30,6 +30,12 @@ class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]? = nil
     ) -> Bool {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-FondDesignGallery") {
+            return true
+        }
+        #endif
+
         FirebaseApp.configure()
         #if canImport(FirebaseMessaging)
         PushManager.shared.configure()

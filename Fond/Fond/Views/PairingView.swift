@@ -19,7 +19,7 @@ struct PairingView: View {
 
     var body: some View {
         ZStack {
-            FondMeshGradient()
+            FondOnboardingBackground()
 
             VStack(spacing: 28) {
                 Spacer()
@@ -27,7 +27,7 @@ struct PairingView: View {
 
                 Text("Connect with your person")
                     .font(.title2.bold())
-                    .foregroundStyle(FondColors.text)
+                    .foregroundStyle(FondColors.ink)
 
                 // Glass segmented picker
                 HStack(spacing: 0) {
@@ -35,7 +35,7 @@ struct PairingView: View {
                     segmentButton("Enter Code", tag: 1)
                 }
                 .padding(4)
-                .fondGlassPlain(
+                .fondFloatingControl(
                     in: RoundedRectangle(cornerRadius: 14, style: .continuous)
                 )
                 .padding(.horizontal, 36)
@@ -70,13 +70,13 @@ struct PairingView: View {
             Text(title)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(
-                    isSelected ? FondColors.text : FondColors.textSecondary
+                    isSelected ? FondColors.ink : FondColors.inkSecondary
                 )
                 .frame(maxWidth: .infinity)
                 .padding(.vertical, 10)
         }
         .buttonStyle(.plain)
-        .fondGlass(
+        .fondFloatingControl(
             in: RoundedRectangle(cornerRadius: 10, style: .continuous),
             tinted: isSelected
         )
@@ -101,23 +101,23 @@ struct GenerateCodeView: View {
         VStack(spacing: 20) {
             Text("Share this code with your partner")
                 .font(.subheadline)
-                .foregroundStyle(FondColors.textSecondary)
+                .foregroundStyle(FondColors.inkSecondary)
 
             if let code {
                 // Code display card
                 VStack(spacing: 12) {
                     Text(code)
                         .font(.system(size: 40, weight: .bold, design: .monospaced))
-                        .foregroundStyle(FondColors.text)
+                        .foregroundStyle(FondColors.ink)
                         .tracking(8)
 
                     Text("Expires in 10 minutes")
                         .font(.caption)
-                        .foregroundStyle(FondColors.textSecondary)
+                        .foregroundStyle(FondColors.inkSecondary)
                 }
                 .padding(.vertical, 24)
                 .padding(.horizontal, 32)
-                .fondCard()
+                .fondKeepsakeCard()
 
                 if isPolling {
                     HStack(spacing: 8) {
@@ -125,7 +125,7 @@ struct GenerateCodeView: View {
                             .controlSize(.small)
                         Text("Waiting for your partner...")
                             .font(.subheadline)
-                            .foregroundStyle(FondColors.textSecondary)
+                            .foregroundStyle(FondColors.inkSecondary)
                     }
                     .padding(.top, 4)
                 }
@@ -140,11 +140,11 @@ struct GenerateCodeView: View {
                         Text("Copy Code")
                             .font(.subheadline.weight(.medium))
                     }
-                    .foregroundStyle(FondColors.text)
+                    .foregroundStyle(FondColors.ink)
                     .padding(.horizontal, 20)
                     .padding(.vertical, 10)
                 }
-                .fondGlassInteractive(
+                .fondFloatingControl(
                     in: RoundedRectangle(cornerRadius: 12, style: .continuous)
                 )
                 .padding(.top, 4)
@@ -166,7 +166,7 @@ struct GenerateCodeView: View {
                     .frame(height: 52)
                 }
                 .disabled(isGenerating)
-                .fondGlassInteractive(
+                .fondFloatingControl(
                     in: RoundedRectangle(cornerRadius: 14, style: .continuous),
                     tinted: true
                 )
@@ -176,7 +176,7 @@ struct GenerateCodeView: View {
             if let error = errorMessage {
                 Text(error)
                     .font(.caption)
-                    .foregroundStyle(FondColors.rose)
+                    .foregroundStyle(FondColors.ink)
             }
         }
         .onDisappear {
@@ -243,7 +243,7 @@ struct EnterCodeView: View {
         VStack(spacing: 20) {
             Text("Enter your partner's code")
                 .font(.subheadline)
-                .foregroundStyle(FondColors.textSecondary)
+                .foregroundStyle(FondColors.inkSecondary)
 
             // Character slots
             HStack(spacing: 10) {
@@ -283,14 +283,14 @@ struct EnterCodeView: View {
                         .controlSize(.small)
                     Text("Connecting...")
                         .font(.subheadline)
-                        .foregroundStyle(FondColors.textSecondary)
+                        .foregroundStyle(FondColors.inkSecondary)
                 }
             }
 
             if let error = errorMessage {
                 Text(error)
                     .font(.caption)
-                    .foregroundStyle(FondColors.rose)
+                    .foregroundStyle(FondColors.ink)
                     .multilineTextAlignment(.center)
                     .padding(.horizontal, 36)
             }
@@ -311,16 +311,16 @@ struct EnterCodeView: View {
 
         return Text(character)
             .font(.system(size: 28, weight: .bold, design: .monospaced))
-            .foregroundStyle(FondColors.text)
+            .foregroundStyle(FondColors.ink)
             .frame(width: 44, height: 56)
             .background(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
-                    .fill(FondColors.surface.opacity(isFilled ? 0.7 : 0.3))
+                    .fill(FondColors.keepsake.opacity(isFilled ? 0.7 : 0.3))
             )
             .overlay(
                 RoundedRectangle(cornerRadius: 12, style: .continuous)
                     .stroke(
-                        isFilled ? FondColors.amber.opacity(0.5) : FondColors.textSecondary.opacity(0.15),
+                        isFilled ? FondColors.amber.opacity(0.5) : FondColors.inkSecondary.opacity(0.15),
                         lineWidth: isFilled ? 1.5 : 1
                     )
             )

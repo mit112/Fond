@@ -32,7 +32,7 @@ struct KeySyncView: View {
 
     var body: some View {
         ZStack {
-            FondMeshGradient()
+            FondOnboardingBackground()
 
             VStack(spacing: 24) {
                 Spacer()
@@ -46,11 +46,11 @@ struct KeySyncView: View {
                 VStack(spacing: 8) {
                     Text("Syncing Encryption Keys")
                         .font(.title3.weight(.semibold))
-                        .foregroundStyle(FondColors.text)
+                        .foregroundStyle(FondColors.ink)
 
                     Text("Waiting for your encryption keys to sync from your other device via iCloud Keychain.")
                         .font(.subheadline)
-                        .foregroundStyle(FondColors.textSecondary)
+                        .foregroundStyle(FondColors.inkSecondary)
                         .multilineTextAlignment(.center)
                         .padding(.horizontal, 32)
                 }
@@ -69,7 +69,7 @@ struct KeySyncView: View {
                         VStack(spacing: 12) {
                             Text("Keys haven't arrived yet. This can happen on simulators or if iCloud Keychain is disabled.")
                                 .font(.caption)
-                                .foregroundStyle(FondColors.textSecondary)
+                                .foregroundStyle(FondColors.inkSecondary)
                                 .multilineTextAlignment(.center)
                                 .padding(.horizontal, 24)
 
@@ -78,11 +78,11 @@ struct KeySyncView: View {
                             } label: {
                                 Text("Retry Now")
                                     .font(.body.weight(.semibold))
-                                    .foregroundStyle(FondColors.text)
+                                    .foregroundStyle(FondColors.ink)
                                     .frame(maxWidth: .infinity)
                                     .padding(.vertical, 14)
                             }
-                            .fondGlassInteractive(
+                            .fondFloatingControl(
                                 in: RoundedRectangle(cornerRadius: 14, style: .continuous),
                                 tinted: true
                             )
@@ -91,7 +91,7 @@ struct KeySyncView: View {
                     } else {
                         Text("Attempt \(retryCount)…")
                             .font(.caption)
-                            .foregroundStyle(FondColors.textSecondary)
+                            .foregroundStyle(FondColors.inkSecondary)
                             .contentTransition(.numericText())
                     }
                 }

@@ -19,7 +19,7 @@ struct SignInView: View {
     var body: some View {
         ZStack {
             // Animated background
-            FondMeshGradient()
+            FondOnboardingBackground()
 
             VStack(spacing: 0) {
                 Spacer()
@@ -35,12 +35,12 @@ struct SignInView: View {
 
                     Text("Fond")
                         .font(.system(size: 52, weight: .bold, design: .rounded))
-                        .foregroundStyle(FondColors.text)
+                        .foregroundStyle(FondColors.ink)
                         .opacity(appeared ? 1 : 0)
 
                     Text("Your Person, At a Glance")
                         .font(.title3)
-                        .foregroundStyle(FondColors.textSecondary)
+                        .foregroundStyle(FondColors.inkSecondary)
                         .opacity(appeared ? 1 : 0)
                 }
 
@@ -74,9 +74,9 @@ struct SignInView: View {
                         }
                         .frame(maxWidth: .infinity)
                         .frame(height: 52)
-                        .foregroundStyle(FondColors.text)
+                        .foregroundStyle(FondColors.ink)
                     }
-                    .fondGlassInteractive(
+                    .fondFloatingControl(
                         in: RoundedRectangle(cornerRadius: 16, style: .continuous)
                     )
                     #endif
@@ -94,7 +94,7 @@ struct SignInView: View {
                     } else if let error = authManager.errorMessage {
                         Text(error)
                             .font(.caption)
-                            .foregroundStyle(FondColors.rose)
+                            .foregroundStyle(FondColors.ink)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 36)
                             .padding(.top, 12)

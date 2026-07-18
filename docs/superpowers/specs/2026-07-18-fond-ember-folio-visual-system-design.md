@@ -2,7 +2,7 @@
 
 > **Date:** 2026-07-18
 >
-> **Status:** Visual direction approved and locked; Tasks 1–7 implemented; Task 8 paused for a non-UI native-macOS repair before Sol resumes UI work
+> **Status:** Implemented through Tasks 1–9 on 2026-07-18; awaiting Mit's final simulator visual approval before merge
 >
 > **Depends on:** `2026-07-17-fond-redesign-design.md`
 >
@@ -117,7 +117,7 @@ Rules:
 | `cardCornerRadius` | 34 pt | Both card faces |
 | `controlHeight` | 52 pt | Toolbar and compose |
 | `minimumHitTarget` | 44 × 44 pt | Every control |
-| `contentMaxWidth` | 640 pt | iPad/macOS keepsake width |
+| `contentMaxWidth` | 640 pt | iPad keepsake width |
 
 ## 3. Liquid Glass control layer
 
@@ -154,7 +154,7 @@ Use one `GlassEffectContainer` for the top toolbar and one for the bottom compos
 ## 4. The keepsake card object
 
 - Opaque fill: `fondKeepsake`. No material, blur, gradient, or image.
-- Radius: 34 pt on compact devices. On iPad/macOS, cap at 38 pt rather than scaling proportionally.
+- Radius: 34 pt on compact devices. On iPad, cap at 38 pt rather than scaling proportionally.
 - Edge: 1.25 pt `strokeBorder(fondAmber)`. Add a second inset highlight of `fondInk` at 6% opacity, 0.5 pt. This is a burnished edge, not a gradient.
 - Field margin: 20 pt horizontal on iPhone; 28 pt on iPad. Maintain at least 12 pt between the card and either floating control.
 - Dark shadow: y 18, blur 46, spread 0, `fondShadow` 38%.
@@ -298,12 +298,9 @@ Widget relevance remains behaviorally unchanged. Visually, newly relevant partne
 - Place toolbar and compose at the same card-aligned width. Pointer hover raises control specular response only; the card itself does not hover.
 - With keyboard attached: ⌘1 Now, ⌘2 Together, ⌘Return send.
 
-### macOS 27 / Catalyst
+### Mac widget continuity
 
-- One centered 600–680 pt card in a resizable window. Field margins grow; the card does not stretch beyond its max width.
-- Toolbar moves into a compact floating control cluster aligned above the card, not the title bar. Compose remains below the card.
-- Trackpad horizontal swipe drives the same interactive turn. Provide menu commands and keyboard equivalents for both faces.
-- macOS does not provide Dynamic Type; respect system text-size/accessibility preferences and offer a compact/default/large content-size setting if the Catalyst bridge does not expose the needed scaling.
+- Fond has no native macOS or Catalyst app target. The iPhone widget can appear on Mac through widget continuity; no Mac view-layer adaptation is required.
 
 ## 10. Implementation mapping
 

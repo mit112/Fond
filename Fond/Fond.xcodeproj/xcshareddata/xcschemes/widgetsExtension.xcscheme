@@ -5,7 +5,7 @@
    version = "2.0">
    <BuildAction
       parallelizeBuildables = "YES"
-      buildImplicitDependencies = "YES"
+      buildImplicitDependencies = "NO"
       buildArchitectures = "Automatic">
       <BuildActionEntries>
          <BuildActionEntry
@@ -19,20 +19,6 @@
                BlueprintIdentifier = "CCE06B312F4DBCB600DCD7BE"
                BuildableName = "widgetsExtension.appex"
                BlueprintName = "widgetsExtension"
-               ReferencedContainer = "container:Fond.xcodeproj">
-            </BuildableReference>
-         </BuildActionEntry>
-         <BuildActionEntry
-            buildForTesting = "YES"
-            buildForRunning = "YES"
-            buildForProfiling = "YES"
-            buildForArchiving = "YES"
-            buildForAnalyzing = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "CCE06A972F4DB3E600DCD7BE"
-               BuildableName = "Fond.app"
-               BlueprintName = "Fond"
                ReferencedContainer = "container:Fond.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
@@ -57,16 +43,6 @@
       debugServiceExtension = "internal"
       allowLocationSimulation = "YES"
       launchAutomaticallySubstyle = "2">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CCE06A972F4DB3E600DCD7BE"
-            BuildableName = "Fond.app"
-            BlueprintName = "Fond"
-            ReferencedContainer = "container:Fond.xcodeproj">
-         </BuildableReference>
-      </BuildableProductRunnable>
       <EnvironmentVariables>
          <EnvironmentVariable
             key = "_XCWidgetKind"
@@ -93,16 +69,6 @@
       debugDocumentVersioning = "YES"
       askForAppToLaunch = "Yes"
       launchAutomaticallySubstyle = "2">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "CCE06A972F4DB3E600DCD7BE"
-            BuildableName = "Fond.app"
-            BlueprintName = "Fond"
-            ReferencedContainer = "container:Fond.xcodeproj">
-         </BuildableReference>
-      </BuildableProductRunnable>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">

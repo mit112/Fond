@@ -104,7 +104,7 @@ struct WatchConnectedView: View {
             .frame(maxWidth: .infinity, minHeight: 48)
         }
         .buttonStyle(.plain)
-        .fondGlassInteractive(
+        .fondFloatingControl(
             in: RoundedRectangle(cornerRadius: 14, style: .continuous),
             tinted: true
         )
@@ -134,7 +134,7 @@ struct WatchConnectedView: View {
             .frame(maxWidth: .infinity, minHeight: 48)
         }
         .buttonStyle(.plain)
-        .fondGlassInteractive(
+        .fondFloatingControl(
             in: RoundedRectangle(cornerRadius: 14, style: .continuous),
             tinted: false
         )

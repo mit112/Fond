@@ -111,27 +111,6 @@ enum FondColors {
         dark: FondPalette.statusSleepingDark
     )
 
-    // Temporary compatibility aliases. Connected-experience call sites migrate by Task 9.
-    static let background = field
-    static let surface = keepsake
-    static let text = ink
-    static let textSecondary = inkSecondary
-    static let lavender = statusAway
-    static let rose = statusBusy
-    static let statusHappy = statusAvailable
-    static let statusStressed = statusBusy
-    static let statusSad = statusAway
-    static let statusExcited = statusBusy
-    static let statusCalm = statusAvailable
-    static let statusWorking = statusAway
-    static let statusDriving = statusAway
-    static let statusEating = amber
-    static let statusExercising = statusAvailable
-    static let statusLove = amber
-    static let bubbleMine = amber.opacity(0.12)
-    static let bubblePartner = statusAway.opacity(0.12)
-    static let glassTint = amber.opacity(0.18)
-
     enum Mesh {
         static let topLeft = keepsake
         static let topRight = field

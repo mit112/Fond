@@ -28,6 +28,9 @@ struct ConnectedMessageInput: View {
                 messageText = String(newValue.prefix(FondConstants.maxMessageLength))
             }
         }
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("fond.compose")
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
     private var composeShell: some View {
@@ -87,6 +90,7 @@ struct ConnectedMessageInput: View {
         .disabled(sendDisabled)
         .keyboardShortcut(.return, modifiers: .command)
         .accessibilityLabel("Send message")
+        .accessibilityIdentifier("fond.send")
         .overlay {
             if cooldownProgress > 0 {
                 Circle()

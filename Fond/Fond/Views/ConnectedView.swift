@@ -90,6 +90,8 @@ struct ConnectedView: View {
                             .accessibilityHidden(true)
                         }
                         .offset(x: nudgeResistance)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("fond.face.now")
                     } back: {
                         TogetherFaceView(
                             state: todayRitualState,
@@ -101,8 +103,12 @@ struct ConnectedView: View {
                         .fondKeepsakeCard()
                         .scaleEffect(isBreathing ? 1.003 : 1)
                         .animation(breathingAnimation, value: isBreathing)
+                        .accessibilityElement(children: .contain)
+                        .accessibilityIdentifier("fond.face.together")
                     }
                     .frame(maxWidth: contentMaxWidth, maxHeight: .infinity)
+                    .accessibilityElement(children: .contain)
+                    .accessibilityIdentifier("fond.card")
                 }
                 .frame(maxHeight: .infinity)
 
@@ -202,6 +208,9 @@ struct ConnectedView: View {
         .padding(.horizontal, FondSpacing.one)
         .fondFloatingControl(in: Capsule())
         .frame(maxWidth: contentMaxWidth)
+        .accessibilityElement(children: .contain)
+        .accessibilityIdentifier("fond.toolbar")
+        .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
     }
 
     private var facePicker: some View {

@@ -16,6 +16,20 @@ import SwiftUI
 import FirebaseAuth
 
 struct ContentView: View {
+    var body: some View {
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-FondDesignGallery") {
+            FondDesignGallery()
+        } else {
+            AuthenticatedContentView()
+        }
+        #else
+        AuthenticatedContentView()
+        #endif
+    }
+}
+
+private struct AuthenticatedContentView: View {
     @State private var authManager = AuthManager.shared
     @State private var displayNameComplete = false
     @State private var isConnected = false
@@ -91,7 +105,7 @@ struct ContentView: View {
     /// Shown during Firebase init and connection check.
     private var loadingView: some View {
         ZStack {
-            FondMeshGradient()
+            FondOnboardingBackground()
 
             VStack(spacing: 16) {
                 Image(systemName: "heart.fill")
@@ -101,7 +115,7 @@ struct ContentView: View {
 
                 Text("Fond")
                     .font(.title3.weight(.medium))
-                    .foregroundStyle(FondColors.textSecondary)
+                    .foregroundStyle(FondColors.inkSecondary)
             }
         }
     }
