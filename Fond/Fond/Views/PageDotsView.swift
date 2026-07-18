@@ -2,9 +2,7 @@
 //  PageDotsView.swift
 //  Fond
 //
-//  Custom page indicator with variable-width active dot.
-//  Active dot is a 10pt capsule tinted to match content color.
-//  Inactive dots are 4pt circles.
+//  Two-face indicator for the Ember Folio card.
 //
 
 import SwiftUI
@@ -15,17 +13,14 @@ struct PageDotsView: View {
     var activeColor: Color = FondColors.amber
 
     var body: some View {
-        HStack(spacing: 6) {
-            ForEach(0..<count, id: \.self) { index in
-                if index == activeIndex {
-                    Capsule()
-                        .fill(activeColor)
-                        .frame(width: 10, height: 4)
-                } else {
-                    Circle()
-                        .fill(FondColors.textSecondary.opacity(0.15))
-                        .frame(width: 4, height: 4)
-                }
+        HStack(spacing: 5) {
+            ForEach(0..<min(count, 2), id: \.self) { index in
+                Circle()
+                    .fill(index == activeIndex ? activeColor : FondColors.inkSecondary)
+                    .frame(
+                        width: index == activeIndex ? 7 : 4,
+                        height: index == activeIndex ? 7 : 4
+                    )
             }
         }
         .animation(.fondQuick, value: activeIndex)

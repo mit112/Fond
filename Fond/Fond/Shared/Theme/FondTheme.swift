@@ -1,34 +1,18 @@
-//
-//  FondTheme.swift
-//  Fond
-//
-//  Reusable view components and modifiers for the Fond design system.
-//  Contains: Animated mesh gradient, glass helpers, card styles.
-//
-//  Target membership: Fond (iOS/Mac) — NOT widget (widgets can't use MeshGradient).
-//  watchOS gets a stripped-down version (no mesh gradient — too expensive).
-//
-//  Design reference: docs/02-design-direction.md
-//
-
 import SwiftUI
+
 #if os(watchOS)
 import WatchKit
 #endif
 
-// MARK: - Animated Mesh Gradient Background
+struct FondField: View {
+    var body: some View {
+        FondColors.field.ignoresSafeArea()
+    }
+}
 
-/// A slowly animating warm mesh gradient that creates a "breathing" background.
-/// Used on the connected view and onboarding screens.
-///
-/// Performance notes:
-/// - MeshGradient is GPU-accelerated and efficient for this grid size.
-/// - Animation uses easeInOut with 6s duration — low CPU impact.
-/// - Only animates the center point position + 2 color shifts.
-/// - Ignores safe area so it fills behind status bar and home indicator.
+// Temporary onboarding compatibility. The connected experience uses FondField.
 struct FondMeshGradient: View {
     #if os(watchOS)
-    // watchOS: static warm gradient — no animation to save battery.
     var body: some View {
         LinearGradient(
             colors: [FondColors.Mesh.topLeft, FondColors.Mesh.center, FondColors.Mesh.bottomRight],
@@ -45,29 +29,15 @@ struct FondMeshGradient: View {
             width: 3,
             height: 3,
             points: [
-                // Row 0: top
-                SIMD2(0.0, 0.0),
-                SIMD2(0.5, 0.0),
-                SIMD2(1.0, 0.0),
-                // Row 1: middle — center point animates
-                SIMD2(0.0, 0.5),
-                SIMD2(phase ? 0.65 : 0.35, phase ? 0.55 : 0.45),
-                SIMD2(1.0, 0.5),
-                // Row 2: bottom
-                SIMD2(0.0, 1.0),
-                SIMD2(0.5, 1.0),
-                SIMD2(1.0, 1.0),
+                SIMD2(0, 0), SIMD2(0.5, 0), SIMD2(1, 0),
+                SIMD2(0, 0.5), SIMD2(phase ? 0.65 : 0.35, phase ? 0.55 : 0.45), SIMD2(1, 0.5),
+                SIMD2(0, 1), SIMD2(0.5, 1), SIMD2(1, 1),
             ],
             colors: [
-                // Row 0
-                FondColors.Mesh.topLeft,
-                FondColors.background,
-                FondColors.Mesh.topRight,
-                // Row 1 — center color shifts
+                FondColors.Mesh.topLeft, FondColors.field, FondColors.Mesh.topRight,
                 FondColors.Mesh.bottomLeft,
                 phase ? FondColors.Mesh.centerAlt : FondColors.Mesh.center,
                 FondColors.Mesh.topRight,
-                // Row 2 — bottom-left shifts
                 phase ? FondColors.Mesh.bottomLeftAlt : FondColors.Mesh.bottomLeft,
                 FondColors.Mesh.center,
                 FondColors.Mesh.bottomRight,
@@ -75,10 +45,7 @@ struct FondMeshGradient: View {
         )
         .ignoresSafeArea()
         .onAppear {
-            withAnimation(
-                .easeInOut(duration: 6.0)
-                .repeatForever(autoreverses: true)
-            ) {
+            withAnimation(.easeInOut(duration: 6).repeatForever(autoreverses: true)) {
                 phase = true
             }
         }
@@ -86,118 +53,162 @@ struct FondMeshGradient: View {
     #endif
 }
 
-// MARK: - Fond Background Modifier
+private struct FondBackgroundModifier: ViewModifier {
+    func body(content: Content) -> some View {
+        content.background(FondColors.field.ignoresSafeArea())
+    }
+}
 
-/// Applies the standard Fond background color to a view.
-/// Use on screens that don't have the mesh gradient (settings, etc.).
-struct FondBackgroundModifier: ViewModifier {
+private struct FondKeepsakeModifier: ViewModifier {
+    @Environment(\.colorScheme) private var colorScheme
+    @Environment(\.colorSchemeContrast) private var contrast
+
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(
+            cornerRadius: FondGeometry.cardCornerRadius,
+            style: .continuous
+        )
+        content
+            .clipShape(shape)
+            .background {
+                shape
+                    .fill(FondColors.keepsake)
+                    .overlay {
+                        shape.strokeBorder(
+                            FondColors.amber,
+                            lineWidth: contrast == .increased ? 2 : 1.25
+                        )
+                    }
+                    .overlay {
+                        shape
+                            .inset(by: 3)
+                            .strokeBorder(FondColors.ink.opacity(0.06), lineWidth: 0.5)
+                    }
+                    .shadow(
+                        color: FondColors.shadow.opacity(colorScheme == .dark ? 0.38 : 0.16),
+                        radius: colorScheme == .dark ? 46 : 38,
+                        y: colorScheme == .dark ? 18 : 16
+                    )
+            }
+    }
+}
+
+private struct FondFloatingControlModifier<ControlShape: Shape>: ViewModifier {
+    let shape: ControlShape
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if reduceTransparency {
+            content
+                .background(shape.fill(FondColors.controlFallback))
+                .overlay(shape.stroke(FondColors.rule, lineWidth: 1))
+                .shadow(color: FondColors.shadow.opacity(0.16), radius: 16, y: 6)
+        } else {
+            content.glassEffect(.regular.interactive(), in: shape)
+        }
+    }
+}
+
+private struct FondControlPlateModifier<ControlShape: Shape>: ViewModifier {
+    let shape: ControlShape
+    @Environment(\.colorSchemeContrast) private var contrast
+
     func body(content: Content) -> some View {
         content
-            .background(FondColors.background.ignoresSafeArea())
+            .background(shape.fill(FondColors.controlPlate))
+            .overlay {
+                if contrast == .increased {
+                    shape.stroke(FondColors.rule, lineWidth: 1.5)
+                }
+            }
+    }
+}
+
+private struct FondSendControlModifier: ViewModifier {
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if reduceTransparency {
+            content
+                .background(Circle().fill(FondColors.amber))
+                .overlay(Circle().stroke(FondColors.rule, lineWidth: 1))
+                .shadow(color: FondColors.shadow.opacity(0.16), radius: 16, y: 6)
+        } else {
+            content.glassEffect(.regular.tint(FondColors.amber).interactive(), in: Circle())
+        }
     }
 }
 
 extension View {
-    /// Applies the standard Fond warm background.
     func fondBackground() -> some View {
         modifier(FondBackgroundModifier())
     }
-}
 
-// MARK: - Fond Card Modifier
-
-/// Applies an elevated card style — Liquid Glass `.clear` on iOS 26,
-/// falls back to surface color + shadow on earlier versions.
-struct FondCardModifier: ViewModifier {
-    var cornerRadius: CGFloat = 20
-
-    func body(content: Content) -> some View {
-        if #available(iOS 26, macOS 26, watchOS 26, *) {
-            content
-                .glassEffect(
-                    .clear,
-                    in: RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                )
-        } else {
-            content
-                .background(
-                    RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                        .fill(FondColors.surface.opacity(0.6))
-                        .shadow(color: .black.opacity(0.06), radius: 12, y: 4)
-                )
-        }
+    func fondKeepsakeCard() -> some View {
+        modifier(FondKeepsakeModifier())
     }
-}
 
-extension View {
-    /// Applies the Fond card style — clear glass on iOS 26, surface + shadow on earlier.
-    func fondCard(cornerRadius: CGFloat = 20) -> some View {
-        modifier(FondCardModifier(cornerRadius: cornerRadius))
+    func fondFloatingControl(in shape: some Shape = Capsule()) -> some View {
+        modifier(FondFloatingControlModifier(shape: shape))
     }
-}
 
-// MARK: - Glass Helpers (iOS 26)
+    func fondControlPlate(in shape: some Shape = Capsule()) -> some View {
+        modifier(FondControlPlateModifier(shape: shape))
+    }
 
-extension View {
-    /// Applies Liquid Glass with amber tint on iOS 26, falls back to thin material.
-    /// Use for primary interactive surfaces (send button, selected status).
+    func fondSendControl() -> some View {
+        modifier(FondSendControlModifier())
+    }
+
+    // Compatibility aliases retained while Tasks 3–6 migrate existing call sites.
+    func fondCard(cornerRadius _: CGFloat = FondGeometry.cardCornerRadius) -> some View {
+        fondKeepsakeCard()
+    }
+
     @ViewBuilder
-    func fondGlass(
-        in shape: some Shape = Capsule(),
-        tinted: Bool = true
-    ) -> some View {
-        if #available(iOS 26, macOS 26, watchOS 26, *) {
-            let glass: Glass = tinted
-                ? .regular.tint(FondColors.amber)
-                : .regular
-            self.glassEffect(glass, in: shape)
+    func fondGlass(in shape: some Shape = Capsule(), tinted: Bool = true) -> some View {
+        if tinted {
+            self.glassEffect(.regular.tint(FondColors.amber), in: shape)
         } else {
-            self.background(shape.fill(.ultraThinMaterial))
+            self.glassEffect(.regular, in: shape)
         }
     }
 
-    /// Interactive Liquid Glass — for tappable buttons and controls.
-    /// Adds press feedback (scale bounce + shimmer) on iOS 26.
     @ViewBuilder
     func fondGlassInteractive(
         in shape: some Shape = Capsule(),
         tinted: Bool = false
     ) -> some View {
-        if #available(iOS 26, macOS 26, watchOS 26, *) {
-            let glass: Glass = tinted
-                ? .regular.tint(FondColors.amber).interactive()
-                : .regular.interactive()
-            self.glassEffect(glass, in: shape)
+        if tinted {
+            self.glassEffect(.regular.tint(FondColors.amber).interactive(), in: shape)
         } else {
-            self.background(shape.fill(.ultraThinMaterial))
+            self.glassEffect(.regular.interactive(), in: shape)
         }
     }
 
-    /// Applies Liquid Glass without tint on iOS 26, falls back to thin material.
-    /// Use for secondary surfaces (toolbar items, unselected controls).
-    @ViewBuilder
     func fondGlassPlain(in shape: some Shape = Capsule()) -> some View {
-        if #available(iOS 26, macOS 26, watchOS 26, *) {
-            self.glassEffect(.regular, in: shape)
-        } else {
-            self.background(shape.fill(.ultraThinMaterial))
-        }
+        glassEffect(.regular, in: shape)
     }
 }
 
-// MARK: - Haptic Helpers
-
-/// Centralized haptic feedback to ensure consistent feel across the app.
-/// Uses UIKit feedback generators on iOS/iPadOS, WKHapticType on watchOS.
-/// Generators are pre-allocated per type for zero-latency feedback.
 enum FondHaptics {
     #if os(iOS)
     private static let impactLight = UIImpactFeedbackGenerator(style: .light)
     private static let impactMedium = UIImpactFeedbackGenerator(style: .medium)
     private static let notification = UINotificationFeedbackGenerator()
+    private static let selection = UISelectionFeedbackGenerator()
     #endif
 
-    /// Status changed — light tap.
+    static func faceTurned() {
+        #if os(iOS)
+        selection.selectionChanged()
+        #elseif os(watchOS)
+        WKInterfaceDevice.current().play(.directionUp)
+        #endif
+    }
+
     static func statusChanged() {
         #if os(iOS)
         impactLight.impactOccurred()
@@ -206,7 +217,6 @@ enum FondHaptics {
         #endif
     }
 
-    /// Message sent — medium tap.
     static func messageSent() {
         #if os(iOS)
         impactMedium.impactOccurred()
@@ -215,7 +225,6 @@ enum FondHaptics {
         #endif
     }
 
-    /// Partner update received — subtle notification.
     static func partnerUpdated() {
         #if os(iOS)
         notification.notificationOccurred(.success)
@@ -224,7 +233,6 @@ enum FondHaptics {
         #endif
     }
 
-    /// Pairing success — celebratory.
     static func pairingSuccess() {
         #if os(iOS)
         notification.notificationOccurred(.success)
@@ -233,7 +241,6 @@ enum FondHaptics {
         #endif
     }
 
-    /// Error or blocked action.
     static func error() {
         #if os(iOS)
         notification.notificationOccurred(.error)
@@ -242,7 +249,6 @@ enum FondHaptics {
         #endif
     }
 
-    /// Destructive action confirmed (unlink).
     static func warning() {
         #if os(iOS)
         notification.notificationOccurred(.warning)
@@ -252,36 +258,20 @@ enum FondHaptics {
     }
 }
 
-// MARK: - Spring Animation Preset
-
 extension Animation {
-    /// Standard Fond spring for state transitions (partner data arriving, etc.).
     static let fondSpring = Animation.spring(response: 0.5, dampingFraction: 0.8)
-
-    /// Quick spring for micro-interactions (button feedback, picker changes).
     static let fondQuick = Animation.spring(response: 0.3, dampingFraction: 0.75)
 }
 
-// MARK: - Previews
-
-#Preview("Mesh Gradient") {
-    FondMeshGradient()
-}
-
-#Preview("Card Style") {
+#Preview("Ember Folio card") {
     ZStack {
-        FondMeshGradient()
-        VStack(spacing: 16) {
-            Text("💚")
-                .font(.system(size: 64))
-            Text("Alex")
-                .font(.largeTitle.bold())
-                .foregroundStyle(FondColors.text)
-            Text("Available")
-                .font(.title3)
-                .foregroundStyle(FondColors.textSecondary)
-        }
-        .padding(32)
-        .fondCard()
+        FondField()
+        Text("Maya")
+            .font(FondType.partnerName)
+            .foregroundStyle(FondColors.ink)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+            .padding(FondSpacing.six)
+            .fondKeepsakeCard()
+            .padding(FondGeometry.cardMarginCompact)
     }
 }
