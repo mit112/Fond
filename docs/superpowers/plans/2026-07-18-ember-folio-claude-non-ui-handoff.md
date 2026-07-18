@@ -151,3 +151,12 @@ The view layer is written for **Mac Catalyst** (`targetEnvironment(macCatalyst)`
 ## Sol resume point
 
 After Claude stops, Sol will review the non-UI diff, re-run proportionate verification, finish Task 8's regular-width/keyboard/UI requirements, commit Task 8, implement Task 9 sequentially, perform the full accessibility matrix, capture Now/Together light and dark plus a mid-turn frame, and stop for Mit's visual approval before any merge.
+
+## Update — 2026-07-18: native macOS dropped (Mac widget via Continuity)
+
+Mit's product decision: Fond is an iPhone + Apple Watch app; the Mac only needs the **widget**, which macOS 14+ provides automatically via **iPhone-widgets-on-Mac (Continuity)** — no Mac app required, and the Mac never touches keys/plaintext (it displays the iPhone-rendered widget). Accordingly:
+
+- `Fond/Fond.xcodeproj/project.pbxproj`: removed `macosx` from `SUPPORTED_PLATFORMS` on the Fond app, widgets, NSE, and test targets. Inert `LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]` conditionals were left as harmless no-ops; visionOS (`xros`) was left untouched.
+- **Supersedes the macOS items above:** the five view-layer native-macOS errors and the `platform=macOS` build requirement no longer apply. Task 8 reduces to iPad + keyboard + watch.
+- The Mac provisioning limitation (Communication Notifications) is moot — there is no Mac app to sign.
+- Commit `58b7807`'s service-layer guards are retained: harmless on iOS (`canImport(UIKit)` is always true there) and ready if a Catalyst Mac app is ever added.
