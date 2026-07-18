@@ -330,7 +330,15 @@ struct FondDateWidget: Widget {
         }
         .configurationDisplayName("Days Together")
         .description("Count the days with your person. Set a countdown for your next visit.")
-        .supportedFamilies([.accessoryInline, .accessoryCircular, .systemSmall, .systemMedium])
+        .supportedFamilies(supportedFamilies)
+    }
+
+    private var supportedFamilies: [WidgetFamily] {
+        #if os(macOS)
+        [.systemSmall, .systemMedium]
+        #else
+        [.accessoryInline, .accessoryCircular, .systemSmall, .systemMedium]
+        #endif
     }
 }
 
@@ -342,6 +350,7 @@ struct FondDateWidget: Widget {
     FondDateWidget()
 } timeline: { FondDateEntry.placeholder }
 
+#if !os(macOS)
 #Preview("Date — Circular", as: .accessoryCircular) {
     FondDateWidget()
 } timeline: { FondDateEntry.placeholder }
@@ -349,3 +358,4 @@ struct FondDateWidget: Widget {
 #Preview("Date — Inline", as: .accessoryInline) {
     FondDateWidget()
 } timeline: { FondDateEntry.placeholder }
+#endif

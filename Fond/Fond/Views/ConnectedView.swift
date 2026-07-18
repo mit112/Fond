@@ -102,7 +102,7 @@ struct ConnectedView: View {
                         .scaleEffect(isBreathing ? 1.003 : 1)
                         .animation(breathingAnimation, value: isBreathing)
                     }
-                    .frame(maxWidth: FondGeometry.contentMaxWidth, maxHeight: .infinity)
+                    .frame(maxWidth: contentMaxWidth, maxHeight: .infinity)
                 }
                 .frame(maxHeight: .infinity)
 
@@ -119,7 +119,7 @@ struct ConnectedView: View {
                     onSend: sendMessage,
                     onStatusTap: { showStatusPicker = true }
                 )
-                .frame(maxWidth: FondGeometry.contentMaxWidth)
+                .frame(maxWidth: contentMaxWidth)
             }
             .padding(.horizontal, cardMargin)
             .padding(.top, FondSpacing.two)
@@ -201,7 +201,7 @@ struct ConnectedView: View {
         .frame(height: FondGeometry.controlHeight)
         .padding(.horizontal, FondSpacing.one)
         .fondFloatingControl(in: Capsule())
-        .frame(maxWidth: FondGeometry.contentMaxWidth)
+        .frame(maxWidth: contentMaxWidth)
     }
 
     private var facePicker: some View {
@@ -249,9 +249,21 @@ struct ConnectedView: View {
     }
 
     private var cardMargin: CGFloat {
+        #if targetEnvironment(macCatalyst)
+        return 40
+        #else
         horizontalSizeClass == .regular
             ? FondGeometry.cardMarginRegular
             : FondGeometry.cardMarginCompact
+        #endif
+    }
+
+    private var contentMaxWidth: CGFloat {
+        #if targetEnvironment(macCatalyst)
+        680
+        #else
+        FondGeometry.contentMaxWidth
+        #endif
     }
 
     private var isDataStale: Bool {

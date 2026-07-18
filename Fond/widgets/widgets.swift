@@ -439,14 +439,16 @@ struct FondWidget: Widget {
         }
         .configurationDisplayName("Your Person")
         .description("See your partner's status and messages at a glance.")
-        .supportedFamilies([
-            .accessoryInline,
-            .accessoryCircular,
-            .accessoryRectangular,
-            .systemSmall,
-            .systemMedium,
-        ])
+        .supportedFamilies(supportedFamilies)
         .pushHandler(FondWidgetPushHandler.self)
+    }
+
+    private var supportedFamilies: [WidgetFamily] {
+        #if os(macOS)
+        [.systemSmall, .systemMedium]
+        #else
+        [.accessoryInline, .accessoryCircular, .accessoryRectangular, .systemSmall, .systemMedium]
+        #endif
     }
 }
 
@@ -466,6 +468,7 @@ struct FondWidget: Widget {
     FondEntry.stale
 }
 
+#if !os(macOS)
 #Preview("Presence — Inline", as: .accessoryInline) {
     FondWidget()
 } timeline: { FondEntry.placeholder }
@@ -477,6 +480,7 @@ struct FondWidget: Widget {
 #Preview("Presence — Rectangular", as: .accessoryRectangular) {
     FondWidget()
 } timeline: { FondEntry.placeholder }
+#endif
 
 #Preview("Presence — Accented") {
     FondSmallView(entry: .placeholder)

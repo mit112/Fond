@@ -274,7 +274,15 @@ struct FondDistanceWidget: Widget {
         }
         .configurationDisplayName("Distance")
         .description("See how far apart you and your person are.")
-        .supportedFamilies([.accessoryInline, .accessoryCircular, .systemSmall])
+        .supportedFamilies(supportedFamilies)
+    }
+
+    private var supportedFamilies: [WidgetFamily] {
+        #if os(macOS)
+        [.systemSmall]
+        #else
+        [.accessoryInline, .accessoryCircular, .systemSmall]
+        #endif
     }
 }
 
@@ -282,6 +290,7 @@ struct FondDistanceWidget: Widget {
     FondDistanceWidget()
 } timeline: { FondDistanceEntry.placeholder; FondDistanceEntry.notConnected }
 
+#if !os(macOS)
 #Preview("Distance — Circular", as: .accessoryCircular) {
     FondDistanceWidget()
 } timeline: { FondDistanceEntry.placeholder }
@@ -289,3 +298,4 @@ struct FondDistanceWidget: Widget {
 #Preview("Distance — Inline", as: .accessoryInline) {
     FondDistanceWidget()
 } timeline: { FondDistanceEntry.placeholder }
+#endif
