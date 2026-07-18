@@ -2,11 +2,13 @@
 
 > **Date:** 2026-07-18
 >
-> **Status:** Visual direction approved; implementation not started
+> **Status:** Visual direction approved; implementation plan ready; implementation not started
 >
 > **Depends on:** `2026-07-17-fond-redesign-design.md`
 >
 > **Scope:** Visual system, motion, moment styling, widgets, and platform adaptations. The locked structure, product behavior, crypto, and feature set do not change.
+>
+> **Implementation plan:** `docs/superpowers/plans/2026-07-18-ember-folio-implementation.md`
 
 ## 1. Direction
 
@@ -70,6 +72,8 @@ Status words remain `fondInkSecondary`. No emoji, colored text, tinted card atmo
 | Sleeping | `#7E95C7` | `5.40:1` | `#49618E` | `5.92:1` |
 
 The adjacent status word is always present, so color is never the sole signal. Unknown raw statuses use `fondInkSecondary` at full opacity and the word returned by `displayInfo(forRawValue:)`.
+
+The remaining 12 statuses reuse this restrained set instead of adding 12 more hues: available green = available/happy/calm/exercising; busy coral = busy/stressed/excited; away lavender = away/sad/working/driving; sleeping indigo = sleeping; brand amber = eating/thinking of you/miss you/loving you. The written status remains authoritative.
 
 ### 2.4 Type tokens
 
