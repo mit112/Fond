@@ -2,13 +2,15 @@
 
 > **Date:** 2026-07-18
 >
-> **Status:** Visual direction approved; implementation plan ready; implementation not started
+> **Status:** Visual direction approved and locked; Tasks 1–7 implemented; Task 8 paused for a non-UI native-macOS repair before Sol resumes UI work
 >
 > **Depends on:** `2026-07-17-fond-redesign-design.md`
 >
 > **Scope:** Visual system, motion, moment styling, widgets, and platform adaptations. The locked structure, product behavior, crypto, and feature set do not change.
 >
 > **Implementation plan:** `docs/superpowers/plans/2026-07-18-ember-folio-implementation.md`
+>
+> **Non-UI handoff:** `docs/superpowers/plans/2026-07-18-ember-folio-claude-non-ui-handoff.md`
 
 ## 1. Direction
 

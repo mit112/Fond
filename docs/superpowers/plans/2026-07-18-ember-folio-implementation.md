@@ -8,6 +8,14 @@
 
 **Tech Stack:** Swift 5 / SwiftUI on Xcode 27, Observation, Swift Testing, XCTest UI tests, WidgetKit, AppIntents, WatchKit, Firebase Firestore, OSLog, Fraunces Variable and Newsreader Variable under SIL OFL 1.1.
 
+## Execution status — 2026-07-18
+
+- Tasks 1–7 are complete on `codex/ember-folio-implementation` through commit `80d9d37`.
+- Task 8's watchOS and iPadOS builds pass. Its UI/platform-adaptation edits are intentionally uncommitted and must remain owned by Sol.
+- Task 8 is paused on a pre-existing, non-UI native-macOS target contradiction: the target advertises `macosx`, while the unchanged push service imports and uses UIKit-only application/device/background-fetch APIs. The signed build also reports that the local provisioning profile lacks the Communication Notifications capability.
+- Claude owns only the non-UI macOS compilation/build-configuration repair described in `docs/superpowers/plans/2026-07-18-ember-folio-claude-non-ui-handoff.md`. Claude must preserve the notification pipeline and current dirty UI files, commit only its own non-UI repair, then stop.
+- Sol resumes after Claude's handoff to finish Task 8 UI verification/commit and all Task 9 gallery, accessibility, screenshot, and visual-approval work.
+
 ## Global Constraints
 
 - Structure, IA, feature set, Firestore schema, Cloud Functions, App Group keys, notification pipeline, and E2E crypto are locked and unchanged.
