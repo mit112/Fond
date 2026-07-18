@@ -217,6 +217,14 @@ enum FondHaptics {
         #endif
     }
 
+    static func nudgeSent() {
+        #if os(iOS)
+        impactLight.impactOccurred()
+        #elseif os(watchOS)
+        WKInterfaceDevice.current().play(.click)
+        #endif
+    }
+
     static func messageSent() {
         #if os(iOS)
         impactMedium.impactOccurred()

@@ -2,6 +2,7 @@ import Foundation
 import Testing
 @testable import Fond
 
+@MainActor
 struct TogetherMomentBuilderTests {
     @Test func buildsEditorialMomentsAndPairsAnswers() {
         let now = Date(timeIntervalSince1970: 1_767_225_600)

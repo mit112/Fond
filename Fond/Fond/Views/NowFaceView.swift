@@ -51,7 +51,6 @@ struct NowFaceView: View {
     let onNudge: () -> Void
 
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var nudgePulse = false
 
     var body: some View {
         ScrollView {
@@ -89,7 +88,6 @@ struct NowFaceView: View {
 
     private var identityBlock: some View {
         Button {
-            pulseNudgeEdge()
             onNudge()
         } label: {
             VStack(alignment: .leading, spacing: 8) {
@@ -119,19 +117,10 @@ struct NowFaceView: View {
             }
             .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
             .contentShape(Rectangle())
-            .overlay(alignment: .leading) {
-                Capsule()
-                    .fill(FondColors.amber)
-                    .frame(width: 3)
-                    .opacity(nudgePulse ? 1 : 0)
-                    .offset(x: -14)
-                    .accessibilityHidden(true)
-            }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Send a nudge to \(model.partnerName)")
         .accessibilityAction(named: "Send nudge") {
-            pulseNudgeEdge()
             onNudge()
         }
     }
@@ -200,18 +189,6 @@ struct NowFaceView: View {
         return facts
     }
 
-    private func pulseNudgeEdge() {
-        guard !reduceMotion else { return }
-        withAnimation(.easeOut(duration: 0.12)) {
-            nudgePulse = true
-        }
-        Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(120))
-            withAnimation(.easeIn(duration: 0.12)) {
-                nudgePulse = false
-            }
-        }
-    }
 }
 
 private let nowFacePreviewModel = NowFaceModel(

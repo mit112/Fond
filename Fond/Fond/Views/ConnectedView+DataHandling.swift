@@ -63,6 +63,7 @@ extension ConnectedView {
                     uid: uid,
                     connectionId: cid
                 )
+                await initializeThreadStore(uid: uid, connectionId: cid)
             }
 
             if let partner = data.partnerUid {
@@ -112,6 +113,7 @@ extension ConnectedView {
             )
 
             WidgetCenter.shared.reloadAllTimelines()
+            Task { await refreshThread() }
         }
     }
 
@@ -137,6 +139,7 @@ extension ConnectedView {
                 }
                 WidgetCenter.shared.reloadAllTimelines()
                 Task { await FondRelevanceUpdater.update() }
+                refreshRelationshipLine()
             }
     }
 
@@ -191,11 +194,14 @@ extension ConnectedView {
         let oldStatus = self.partnerStatus
         let oldMessage = self.partnerMessage
         let oldBpm = self.partnerHeartbeatBpm
+        let presentedMessage = decoded.message == "💛"
+            ? oldMessage
+            : decoded.message
 
         withAnimation(.fondSpring) {
             self.partnerName = decoded.name
             self.partnerStatus = decoded.status
-            self.partnerMessage = decoded.message
+            self.partnerMessage = presentedMessage
             self.partnerLastUpdated = lastUpdated
 
             if let bpm = decoded.heartbeatBpm {
@@ -210,7 +216,7 @@ extension ConnectedView {
 
         if wasVisible,
            decoded.status != oldStatus
-            || decoded.message != oldMessage {
+            || presentedMessage != oldMessage {
             FondHaptics.partnerUpdated()
         }
 

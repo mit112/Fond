@@ -1,11 +1,3 @@
-//
-//  ConnectedMessageInput.swift
-//  Fond
-//
-//  Extracted from ConnectedView — status pill, message text field, send button
-//  with cooldown ring overlay, and the feedback bar (error / char count).
-//
-
 import SwiftUI
 
 struct ConnectedMessageInput: View {
@@ -16,159 +8,142 @@ struct ConnectedMessageInput: View {
     let cooldownRemaining: Int
     let errorMessage: String?
     let onSend: () -> Void
-    var onStatusTap: (() -> Void)? = nil
+    var onStatusTap: (() -> Void)?
 
     var body: some View {
-        VStack(spacing: 0) {
+        VStack(spacing: FondSpacing.one) {
             feedbackBar
-                .padding(.bottom, 4)
                 .animation(.fondQuick, value: errorMessage)
                 .animation(.fondQuick, value: charCount)
 
-            HStack(spacing: 8) {
-                statusPill
-                inputRow
+            GlassEffectContainer(spacing: FondSpacing.two) {
+                HStack(spacing: FondSpacing.two) {
+                    composeShell
+                    sendButton
+                }
             }
-            .padding(.horizontal, 20)
-            .padding(.bottom, 12)
+        }
+        .onChange(of: messageText) { _, newValue in
+            if newValue.count > FondConstants.maxMessageLength {
+                messageText = String(newValue.prefix(FondConstants.maxMessageLength))
+            }
         }
     }
 
-    // MARK: - Status Pill
-
-    private var statusPill: some View {
-        Button {
-            onStatusTap?()
-        } label: {
-            HStack(spacing: 4) {
-                Text(myStatus.emoji)
-                    .font(.system(size: 18))
-                Image(systemName: "chevron.right")
-                    .font(.caption2.weight(.semibold))
-                    .foregroundStyle(FondColors.textSecondary.opacity(0.15))
+    private var composeShell: some View {
+        HStack(spacing: FondSpacing.two) {
+            Button {
+                onStatusTap?()
+            } label: {
+                Circle()
+                    .fill(myStatus.statusColor)
+                    .frame(width: 10, height: 10)
+                    .frame(width: FondGeometry.minimumTarget, height: FondGeometry.minimumTarget)
+                    .contentShape(Rectangle())
             }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 10)
-            .contentShape(Rectangle())
-        }
-        .buttonStyle(.plain)
-        .fondGlassInteractive(
-            in: RoundedRectangle(cornerRadius: 16, style: .continuous)
-        )
-        .accessibilityLabel("Your status: \(myStatus.displayName). Double tap to change.")
-    }
+            .buttonStyle(.plain)
+            .accessibilityLabel("Your status: \(myStatus.displayName). Change status.")
 
-    // MARK: - Input Row
+            Rectangle()
+                .fill(FondColors.rule)
+                .frame(width: 1, height: 22)
+                .accessibilityHidden(true)
 
-    private var inputRow: some View {
-        HStack(spacing: 10) {
-            TextField("Say something...", text: $messageText)
-                .font(.callout)
-                .padding(.horizontal, 16)
-                .padding(.vertical, 12)
-                .background(
-                    RoundedRectangle(
-                        cornerRadius: 20,
-                        style: .continuous
-                    )
-                    .fill(FondColors.surface.opacity(0.5))
-                )
-                .overlay(
-                    RoundedRectangle(
-                        cornerRadius: 20,
-                        style: .continuous
-                    )
-                    .stroke(
-                        FondColors.textSecondary.opacity(0.15),
-                        lineWidth: 1
-                    )
-                )
+            TextField("Say something…", text: $messageText)
+                .font(FondType.body)
+                .foregroundStyle(FondColors.ink)
                 .submitLabel(.send)
-                .onSubmit { onSend() }
-
-            sendButton
+                .onSubmit(onSend)
+                .accessibilityLabel("Message")
         }
+        .padding(.horizontal, FondSpacing.two)
+        .frame(maxWidth: .infinity, minHeight: 48)
+        .fondControlPlate(in: Capsule())
+        .padding(2)
+        .frame(height: 56)
+        .fondFloatingControl(in: Capsule())
     }
 
-    // MARK: - Send Button
-
+    @ViewBuilder
     private var sendButton: some View {
-        Button {
-            onSend()
-        } label: {
+        let button = Button(action: onSend) {
             Group {
                 if isSending {
                     ProgressView()
-                        .tint(FondColors.text)
+                        .tint(sendForeground)
                 } else if sendSuccess {
                     Image(systemName: "checkmark")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 20, weight: .medium))
                 } else {
                     Image(systemName: "arrow.up")
-                        .font(.body.weight(.semibold))
-                        .foregroundStyle(.white)
+                        .font(.system(size: 20, weight: .medium))
                 }
             }
-            .frame(width: 30, height: 30)
+            .foregroundStyle(sendForeground)
+            .frame(width: 52, height: 52)
             .contentTransition(.symbolEffect(.replace))
         }
-        .disabled(trimmedText.isEmpty || isSending)
-        .fondGlassInteractive(in: Circle(), tinted: true)
+        .buttonStyle(.plain)
+        .disabled(sendDisabled)
+        .keyboardShortcut(.return, modifiers: .command)
+        .accessibilityLabel("Send message")
         .overlay {
             if cooldownProgress > 0 {
                 Circle()
                     .trim(from: 0, to: cooldownProgress)
                     .stroke(
-                        FondColors.amber.opacity(0.5),
-                        style: StrokeStyle(
-                            lineWidth: 3,
-                            lineCap: .round
-                        )
+                        FondColors.amber,
+                        style: StrokeStyle(lineWidth: 3, lineCap: .round)
                     )
                     .rotationEffect(.degrees(-90))
-                    .frame(width: 34, height: 34)
-                    .animation(
-                        .linear(duration: 1),
-                        value: cooldownProgress
-                    )
+                    .frame(width: 46, height: 46)
+                    .animation(.linear(duration: 1), value: cooldownProgress)
+                    .accessibilityHidden(true)
             }
         }
-    }
 
-    // MARK: - Feedback Bar
+        if sendDisabled {
+            button.fondFloatingControl(in: Circle())
+        } else {
+            button.fondSendControl()
+        }
+    }
 
     @ViewBuilder
     private var feedbackBar: some View {
-        if let error = errorMessage {
-            Text(error)
-                .font(.caption)
-                .foregroundStyle(FondColors.rose)
+        if let errorMessage {
+            Text(errorMessage)
+                .font(FondType.metadata)
+                .foregroundStyle(FondColors.ink)
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .transition(.opacity)
         } else if charCount > charCountThreshold {
             Text("\(charCount)/\(FondConstants.maxMessageLength)")
-                .font(.caption.monospacedDigit())
+                .font(FondType.metadata)
                 .foregroundStyle(
-                    charCount >= FondConstants.maxMessageLength
-                        ? FondColors.rose
-                        : FondColors.textSecondary
+                    charCount == FondConstants.maxMessageLength
+                        ? FondColors.amber
+                        : FondColors.inkSecondary
                 )
+                .frame(maxWidth: .infinity, alignment: .trailing)
                 .contentTransition(.numericText())
                 .transition(.opacity)
-        } else {
-            Color.clear.frame(height: 16)
         }
     }
-
-    // MARK: - Helpers
 
     private var trimmedText: String {
         messageText.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
-    private var charCount: Int {
-        trimmedText.count
+    private var sendDisabled: Bool {
+        trimmedText.isEmpty || isSending
     }
+
+    private var sendForeground: Color {
+        sendDisabled ? FondColors.inkSecondary : FondColors.sendForeground
+    }
+
+    private var charCount: Int { messageText.count }
 
     private var charCountThreshold: Int {
         Int(Double(FondConstants.maxMessageLength) * 0.7)
@@ -176,7 +151,6 @@ struct ConnectedMessageInput: View {
 
     private var cooldownProgress: CGFloat {
         guard cooldownRemaining > 0 else { return 0 }
-        return CGFloat(cooldownRemaining)
-            / CGFloat(FondConstants.rateLimitSeconds)
+        return CGFloat(cooldownRemaining) / CGFloat(FondConstants.rateLimitSeconds)
     }
 }

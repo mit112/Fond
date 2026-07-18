@@ -31,6 +31,7 @@ enum CardTurnMath {
 
 struct CardTurnContainer<Front: View, Back: View>: View {
     @Binding private var face: FondFace
+    @Binding private var isDragging: Bool
     let reduceMotion: Bool
     private let front: Front
     private let back: Back
@@ -45,11 +46,13 @@ struct CardTurnContainer<Front: View, Back: View>: View {
 
     init(
         face: Binding<FondFace>,
+        isDragging: Binding<Bool> = .constant(false),
         reduceMotion: Bool,
         @ViewBuilder front: () -> Front,
         @ViewBuilder back: () -> Back
     ) {
         _face = face
+        _isDragging = isDragging
         self.reduceMotion = reduceMotion
         self.front = front()
         self.back = back()
@@ -121,6 +124,7 @@ struct CardTurnContainer<Front: View, Back: View>: View {
                 let origin = dragOrigin ?? face
                 if dragOrigin == nil {
                     dragOrigin = origin
+                    isDragging = true
                     crossedMidpoint = false
                 }
                 let progress = CardTurnMath.progress(
@@ -129,7 +133,11 @@ struct CardTurnContainer<Front: View, Back: View>: View {
                     from: origin
                 )
                 if !reduceMotion {
-                    angle = CardTurnMath.angle(progress: progress, from: origin)
+                    angle = interactiveAngle(
+                        translation: value.translation.width,
+                        width: width,
+                        from: origin
+                    )
                 }
                 accessibilityFace = progress < 0.5 ? origin : origin.opposite
                 if progress >= 0.5, !crossedMidpoint {
@@ -139,7 +147,10 @@ struct CardTurnContainer<Front: View, Back: View>: View {
             }
             .onEnded { value in
                 let origin = dragOrigin ?? face
-                defer { dragOrigin = nil }
+                defer {
+                    dragOrigin = nil
+                    isDragging = false
+                }
                 guard abs(value.translation.height) <= abs(value.translation.width) * 1.2 else {
                     settle(to: origin, focus: false)
                     return
@@ -164,9 +175,30 @@ struct CardTurnContainer<Front: View, Back: View>: View {
                 settle(
                     to: destination,
                     focus: destination != origin,
-                    initialVelocity: Double(directedVelocity / max(width, 1))
+                    initialVelocity: min(
+                        max(Double(directedVelocity / max(width, 1)), -3),
+                        3
+                    )
                 )
             }
+    }
+
+    private func interactiveAngle(
+        translation: CGFloat,
+        width: CGFloat,
+        from face: FondFace
+    ) -> Double {
+        guard width > 0 else { return face == .now ? 0 : 180 }
+        let directed = face == .now ? -translation : translation
+        let rawProgress = directed / (width * CardTurnMath.widthFactor)
+        let overshoot = min(12, Double(abs(rawProgress - min(max(rawProgress, 0), 1))) * 24)
+        if rawProgress < 0 {
+            return face == .now ? -overshoot : 180 + overshoot
+        }
+        if rawProgress > 1 {
+            return face == .now ? 180 + overshoot : -overshoot
+        }
+        return CardTurnMath.angle(progress: rawProgress, from: face)
     }
 
     private func settle(

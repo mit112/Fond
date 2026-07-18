@@ -1,18 +1,3 @@
-//
-//  ConnectedView.swift
-//  Fond
-//
-//  Main screen when two users are paired — the "hub" of the app.
-//  Shows partner's status/message with real-time updates.
-//  Lets user set their own status and send messages.
-//
-//  Design: Single-screen hub with animated mesh gradient background.
-//  No NavigationStack, no tab bar. History + settings slide up as sheets.
-//  Glass-styled controls on iOS 26, warm amber accents throughout.
-//
-//  Design reference: docs/02-design-direction.md
-//
-
 import SwiftUI
 import WidgetKit
 import FirebaseAuth
@@ -25,136 +10,105 @@ struct ConnectedView: View {
     var authManager: AuthManager
     var onDisconnect: () -> Void
 
-    // MARK: - Partner State (from real-time listener)
-
-    @State var partnerName: String = "..."
+    @State var partnerName = "..."
     @State var partnerStatus: UserStatus?
     @State var partnerMessage: String?
     @State var partnerLastUpdated: Date?
-
-    // MARK: - My State
 
     @State private var myStatus: UserStatus = .available
     @State private var messageText = ""
     @State private var isSending = false
     @State private var sendSuccess = false
-    @State private var lastSentMessage: String?
     @State var errorMessage: String?
 
-    // MARK: - Rate Limiting
-
-    @State private var lastSendTime: Date = .distantPast
-    @State private var cooldownRemaining: Int = 0
+    @State private var lastSendTime = Date.distantPast
+    @State private var cooldownRemaining = 0
     @State private var cooldownTimer: Timer?
-
-    // MARK: - Connection Info
 
     @State var connectionId: String?
     @State var partnerUid: String?
     @State var listener: ListenerRegistration?
     @State var connectionListener: ListenerRegistration?
 
-    // MARK: - Sheets
-
-    @State private var showHistory = false
     @State private var showSettings = false
     @State private var showStatusPicker = false
 
-    // MARK: - Heartbeat
-
     @State var partnerHeartbeatBpm: Int?
     @State var partnerHeartbeatTime: Date?
-
-    // MARK: - Distance
-
-    @State var lastLocationCapture: Date = .distantPast
+    @State var lastLocationCapture = Date.distantPast
     @State var distanceMiles: Double?
     @State var partnerCity: String?
 
-    // MARK: - Environment
+    @State var partnerDataVisible = false
+    @State var lastNudgeReceivedTime: Date?
+
+    @State private var activeFace: FondFace = .now
+    @State private var isCardDragging = false
+    @State private var isBreathing = false
+    @State private var isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
+    @State private var nudgeEdgePulse = false
+    @State private var nudgeResistance: CGFloat = 0
+    @State private var lastNudgeTime = Date.distantPast
+    @State private var threadStore: TogetherThreadStore?
+    @State private var promptManager = DailyPromptManager.shared
+    @State var relationshipLine: String?
 
     @Environment(\.scenePhase) private var scenePhase
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    // MARK: - Animation
-
-    @State var partnerDataVisible = false
-    @State private var isBreathing = false
-
-    // MARK: - Nudge
-
-    @State private var lastNudgeTime: Date = .distantPast
-    @State private var nudgeHintVisible = true
-    @State private var nudgeScale: CGFloat = 1.0
-    @State private var nudgeShakeOffset: CGFloat = 0
-
-    // MARK: - Contextual Card
-
-    @State private var lastSentMessageTime: Date?
-    @State var lastNudgeReceivedTime: Date?
-    @State private var showDailyPromptSheet = false
-
-    // MARK: - Body
+    @Environment(\.accessibilityDifferentiateWithoutColor) private var differentiateWithoutColor
+    @Environment(\.colorSchemeContrast) private var colorSchemeContrast
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
 
     var body: some View {
         ZStack {
-            FondMeshGradient()
+            FondField()
                 .contentShape(Rectangle())
                 .onTapGesture { dismissKeyboard() }
 
-            VStack(spacing: 0) {
+            VStack(spacing: FondSpacing.three) {
                 toolbar
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
 
-                // Partner card with nudge gesture + staleness timer
-                TimelineView(.periodic(from: .now, by: 60)) { _ in
-                    ConnectedPartnerCard(
-                        partnerName: partnerName,
-                        partnerStatus: partnerStatus,
-                        partnerMessage: partnerMessage,
-                        partnerLastUpdated: partnerLastUpdated,
-                        partnerHeartbeatBpm: partnerHeartbeatBpm,
-                        partnerHeartbeatTime: partnerHeartbeatTime,
-                        distanceMiles: distanceMiles,
-                        partnerCity: partnerCity,
-                        isBreathing: isBreathing,
-                        nudgeHintVisible: nudgeHintVisible,
-                        isStale: isDataStale,
-                        onNudge: sendNudge
-                    )
-                }
-                .padding(.horizontal, 24)
-                .padding(.top, 12)
-                .containerRelativeFrame(.vertical) { height, _ in
-                    height * 0.6
-                }
-                .opacity(partnerDataVisible ? 1 : 0)
-                .scaleEffect(partnerDataVisible ? nudgeScale : 0.95)
-                .offset(x: nudgeShakeOffset)
-                .onLongPressGesture(minimumDuration: 0.5) { sendNudge() }
-                .accessibilityAction(named: "Send nudge") { sendNudge() }
-                .onAppear {
-                    guard !reduceMotion else { return }
-                    withAnimation(.easeInOut(duration: 4.0).repeatForever(autoreverses: true)) {
-                        isBreathing = true
-                    }
-                }
-
-                // Contextual card with auto-dismiss timer
-                if !activeContextualCards.isEmpty {
-                    TimelineView(.periodic(from: .now, by: 10)) { _ in
-                        ContextualCardView(
-                            cards: activeContextualCards,
-                            onTapPrompt: { showDailyPromptSheet = true }
+                TimelineView(.periodic(from: .now, by: 60)) { context in
+                    CardTurnContainer(
+                        face: $activeFace,
+                        isDragging: $isCardDragging,
+                        reduceMotion: reduceMotion
+                    ) {
+                        NowFaceView(
+                            model: nowFaceModel(now: context.date),
+                            isBreathing: isBreathing,
+                            onNudge: sendNudge
                         )
+                        .fondKeepsakeCard()
+                        .overlay {
+                            RoundedRectangle(
+                                cornerRadius: FondGeometry.cardCornerRadius,
+                                style: .continuous
+                            )
+                            .stroke(FondColors.amber, lineWidth: 3)
+                            .opacity(nudgeEdgePulse ? 1 : 0)
+                            .accessibilityHidden(true)
+                        }
+                        .offset(x: nudgeResistance)
+                    } back: {
+                        TogetherFaceView(
+                            state: todayRitualState,
+                            moments: threadStore?.moments ?? [],
+                            hasMore: threadStore?.hasMore ?? false,
+                            onAnswer: submitPromptAnswer,
+                            onLoadMore: loadMoreMoments
+                        )
+                        .fondKeepsakeCard()
+                        .scaleEffect(isBreathing ? 1.003 : 1)
+                        .animation(breathingAnimation, value: isBreathing)
                     }
-                    .padding(.horizontal, 24)
-                    .padding(.top, 10)
-                    .padding(.bottom, 4)
+                    .frame(maxWidth: FondGeometry.contentMaxWidth, maxHeight: .infinity)
                 }
+                .frame(maxHeight: .infinity)
 
-                // Fixed bottom bar
+                PageDotsView(count: 2, activeIndex: activeFace.rawValue)
+                    .accessibilityLabel(activeFace == .now ? "Now face" : "Together face")
+
                 ConnectedMessageInput(
                     messageText: $messageText,
                     myStatus: myStatus,
@@ -165,34 +119,46 @@ struct ConnectedView: View {
                     onSend: sendMessage,
                     onStatusTap: { showStatusPicker = true }
                 )
-                .padding(.horizontal, 20)
-                .padding(.bottom, 12)
+                .frame(maxWidth: FondGeometry.contentMaxWidth)
             }
+            .padding(.horizontal, cardMargin)
+            .padding(.top, FondSpacing.two)
+            .padding(.bottom, FondSpacing.three)
         }
         .sheet(isPresented: $showStatusPicker) {
             StatusPickerSheet(currentStatus: myStatus) { newStatus in
                 setStatus(newStatus)
             }
         }
-        .sheet(isPresented: $showHistory) {
-            if let connectionId, let uid = authManager.currentUser?.uid {
-                HistoryView(connectionId: connectionId, myUid: uid)
-            }
-        }
-        .sheet(isPresented: $showSettings) {
-            SettingsView(authManager: authManager, connectionId: connectionId, onDisconnect: onDisconnect)
-        }
-        .sheet(isPresented: $showDailyPromptSheet) {
-            if let uid = authManager.currentUser?.uid, let cid = connectionId {
-                DailyPromptCard(partnerName: partnerName, uid: uid, connectionId: cid)
-                    .presentationDetents([.medium, .large])
-                    .presentationDragIndicator(.visible)
-            }
+        .sheet(isPresented: $showSettings, onDismiss: refreshRelationshipLine) {
+            SettingsView(
+                authManager: authManager,
+                connectionId: connectionId,
+                onDisconnect: onDisconnect
+            )
         }
         .task { await setupConnection() }
+        .onAppear {
+            refreshRelationshipLine()
+            restartBreathing()
+        }
+        .onChange(of: isCardDragging) { _, _ in restartBreathing() }
+        .onChange(of: reduceMotion) { _, _ in restartBreathing() }
         .onChange(of: scenePhase) { _, newPhase in
-            if newPhase == .active { nudgeHintVisible = true }
             handleScenePhaseChange(newPhase)
+            if newPhase == .active {
+                refreshRelationshipLine()
+                isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
+                restartBreathing()
+            }
+        }
+        .onReceive(
+            NotificationCenter.default.publisher(
+                for: .NSProcessInfoPowerStateDidChange
+            )
+        ) { _ in
+            isLowPowerMode = ProcessInfo.processInfo.isLowPowerModeEnabled
+            restartBreathing()
         }
         .onDisappear {
             listener?.remove()
@@ -202,97 +168,203 @@ struct ConnectedView: View {
         }
     }
 
-    // MARK: - Floating Toolbar
-
     private var toolbar: some View {
-        HStack {
+        HStack(spacing: FondSpacing.two) {
             Button {
                 showSettings = true
             } label: {
                 Image(systemName: "gearshape")
                     .font(.body.weight(.medium))
-                    .foregroundStyle(FondColors.text)
-                    .frame(width: 40, height: 40)
+                    .foregroundStyle(FondColors.ink)
+                    .frame(width: FondGeometry.minimumTarget, height: FondGeometry.minimumTarget)
             }
-            .fondGlassInteractive(in: Circle())
+            .buttonStyle(.plain)
+            .accessibilityLabel("Open settings")
 
-            Spacer()
+            Spacer(minLength: FondSpacing.one)
 
-            Text("FOND")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(FondColors.textSecondary.opacity(0.3))
-                .tracking(1.5)
+            facePicker
 
-            Spacer()
+            Spacer(minLength: FondSpacing.one)
 
             Button {
-                showHistory = true
+                activeFace = .together
             } label: {
-                Image(systemName: "clock.arrow.circlepath")
+                Image(systemName: "text.justify.leading")
                     .font(.body.weight(.medium))
-                    .foregroundStyle(FondColors.text)
-                    .frame(width: 40, height: 40)
+                    .foregroundStyle(FondColors.ink)
+                    .frame(width: FondGeometry.minimumTarget, height: FondGeometry.minimumTarget)
             }
-            .fondGlassInteractive(in: Circle())
+            .buttonStyle(.plain)
+            .accessibilityLabel("Show Together thread")
         }
+        .frame(height: FondGeometry.controlHeight)
+        .padding(.horizontal, FondSpacing.one)
+        .fondFloatingControl(in: Capsule())
+        .frame(maxWidth: FondGeometry.contentMaxWidth)
     }
 
-    // MARK: - Stale Check
+    private var facePicker: some View {
+        HStack(spacing: FondSpacing.two) {
+            faceButton("Now", face: .now)
+                .keyboardShortcut("1", modifiers: .command)
+
+            Text("·")
+                .font(FondType.control)
+                .foregroundStyle(FondColors.amber)
+                .accessibilityHidden(true)
+
+            faceButton("Together", face: .together)
+                .keyboardShortcut("2", modifiers: .command)
+        }
+        .padding(.horizontal, FondSpacing.four)
+        .frame(height: 36)
+        .fondControlPlate(in: Capsule())
+    }
+
+    private func faceButton(_ label: String, face: FondFace) -> some View {
+        let isActive = activeFace == face
+        return Button {
+            activeFace = face
+        } label: {
+            Text(label)
+                .font(FondType.control)
+                .foregroundStyle(
+                    isActive || colorSchemeContrast == .increased
+                        ? FondColors.ink
+                        : FondColors.inkSecondary
+                )
+                .frame(minHeight: FondGeometry.minimumTarget)
+                .overlay(alignment: .bottom) {
+                    if isActive && differentiateWithoutColor {
+                        Capsule()
+                            .fill(FondColors.amber)
+                            .frame(width: 12, height: 2)
+                            .offset(y: -6)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .accessibilityAddTraits(isActive ? .isSelected : [])
+    }
+
+    private var cardMargin: CGFloat {
+        horizontalSizeClass == .regular
+            ? FondGeometry.cardMarginRegular
+            : FondGeometry.cardMarginCompact
+    }
 
     private var isDataStale: Bool {
-        guard let lastUpdated = partnerLastUpdated else { return false }
-        return Date().timeIntervalSince(lastUpdated) > 3600
+        guard let partnerLastUpdated else { return false }
+        return Date().timeIntervalSince(partnerLastUpdated) > 3_600
     }
 
-    // MARK: - Contextual Cards
-
-    private var activeContextualCards: [ContextualCardType] {
-        var cards: [ContextualCardType] = []
-        let now = Date()
-
-        if let nudgeTime = lastNudgeReceivedTime, now.timeIntervalSince(nudgeTime) < 30 {
-            cards.append(.nudgeReceived(partnerName: partnerName))
-        }
-        if let bpm = partnerHeartbeatBpm, let time = partnerHeartbeatTime, now.timeIntervalSince(time) < 1800 {
-            cards.append(.heartbeat(bpm: bpm, time: time))
-        }
-        let pm = DailyPromptManager.shared
-        if pm.isSubmitted && pm.partnerAnswer != nil {
-            cards.append(.bothAnswered)
-        } else if let prompt = pm.todaysPrompt {
-            cards.append(.dailyPrompt(text: prompt.text))
-        }
-        if let sentTime = lastSentMessageTime, now.timeIntervalSince(sentTime) < 60, let msg = lastSentMessage {
-            cards.append(.sentEcho(message: msg))
-        }
-        return cards
+    private func nowFaceModel(now: Date) -> NowFaceModel {
+        let heartbeatIsFresh = partnerHeartbeatTime.map {
+            now.timeIntervalSince($0) < 1_800
+        } ?? false
+        return NowFaceModel(
+            partnerName: partnerName,
+            status: partnerStatus,
+            message: partnerMessage == "💛" ? nil : partnerMessage,
+            lastUpdated: partnerLastUpdated,
+            heartbeatBpm: heartbeatIsFresh ? partnerHeartbeatBpm : nil,
+            heartbeatTime: heartbeatIsFresh ? partnerHeartbeatTime : nil,
+            distanceMiles: distanceMiles,
+            relationshipLine: relationshipLine,
+            isStale: isDataStale
+        )
     }
 
-    // MARK: - Rate Limiting
+    private var todayRitualState: TodayRitualState {
+        let phase: TodayRitualState.Phase
+        if let myAnswer = promptManager.myAnswer {
+            if let partnerAnswer = promptManager.partnerAnswer {
+                phase = .revealed(myAnswer: myAnswer, partnerAnswer: partnerAnswer)
+            } else {
+                phase = .waiting(myAnswer: myAnswer)
+            }
+        } else {
+            phase = .unanswered
+        }
+        return TodayRitualState(
+            question: promptManager.todaysPrompt?.text ?? "What would you like to remember today?",
+            partnerName: partnerName,
+            phase: phase,
+            isSubmitting: promptManager.isSubmitting,
+            errorMessage: promptManager.lastError
+        )
+    }
+
+    private var breathingAnimation: Animation? {
+        isBreathing
+            ? .easeInOut(duration: 5.6).repeatForever(autoreverses: true)
+            : .easeOut(duration: 0.12)
+    }
+
+    private func restartBreathing() {
+        isBreathing = false
+        guard !reduceMotion, !isLowPowerMode, !isCardDragging else { return }
+        Task { @MainActor in
+            await Task.yield()
+            guard !reduceMotion, !isLowPowerMode, !isCardDragging else { return }
+            isBreathing = true
+        }
+    }
+
+    func initializeThreadStore(uid: String, connectionId: String) async {
+        let store = TogetherThreadStore(
+            provider: FirebaseHistoryProvider(),
+            myUid: uid,
+            decrypt: EncryptionManager.shared.decryptOrNil,
+            promptText: DailyPromptManager.shared.promptText
+        )
+        threadStore = store
+        await store.loadInitial(connectionId: connectionId)
+    }
+
+    func refreshThread() async {
+        guard let connectionId, let threadStore else { return }
+        await threadStore.loadInitial(connectionId: connectionId)
+    }
+
+    func refreshRelationshipLine() {
+        let defaults = UserDefaults(suiteName: FondConstants.appGroupID)
+        relationshipLine = RelationshipDateSummary.make(
+            anniversary: defaults?.object(forKey: FondConstants.anniversaryDateKey) as? Date,
+            countdown: defaults?.object(forKey: FondConstants.countdownDateKey) as? Date,
+            label: defaults?.string(forKey: FondConstants.countdownLabelKey)
+        )
+    }
+
+    private func loadMoreMoments() {
+        guard let connectionId, let threadStore else { return }
+        Task { await threadStore.loadMore(connectionId: connectionId) }
+    }
+
+    private func submitPromptAnswer(_ answer: String) {
+        guard let uid = authManager.currentUser?.uid, let connectionId else { return }
+        Task {
+            await promptManager.submitAnswer(
+                answer: answer,
+                uid: uid,
+                connectionId: connectionId
+            )
+            if promptManager.lastError == nil { await refreshThread() }
+        }
+    }
 
     private var canSend: Bool {
-        Date().timeIntervalSince(lastSendTime)
-            >= Double(FondConstants.rateLimitSeconds)
+        Date().timeIntervalSince(lastSendTime) >= Double(FondConstants.rateLimitSeconds)
     }
 
     private func startCooldownTimer() {
-        let elapsed = Int(
-            Date().timeIntervalSince(lastSendTime)
-        )
-        cooldownRemaining = max(
-            FondConstants.rateLimitSeconds - elapsed,
-            0
-        )
+        let elapsed = Int(Date().timeIntervalSince(lastSendTime))
+        cooldownRemaining = max(FondConstants.rateLimitSeconds - elapsed, 0)
         cooldownTimer?.invalidate()
-        cooldownTimer = Timer.scheduledTimer(
-            withTimeInterval: 1.0,
-            repeats: true
-        ) { _ in
-            let elapsed = Int(
-                Date().timeIntervalSince(lastSendTime)
-            )
-            let remaining =
-                FondConstants.rateLimitSeconds - elapsed
+        cooldownTimer = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { _ in
+            let elapsed = Int(Date().timeIntervalSince(lastSendTime))
+            let remaining = FondConstants.rateLimitSeconds - elapsed
             if remaining <= 0 {
                 cooldownRemaining = 0
                 cooldownTimer?.invalidate()
@@ -303,32 +375,26 @@ struct ConnectedView: View {
         }
     }
 
-    // MARK: - Actions
-
     private func setStatus(_ status: UserStatus) {
-        guard let uid = authManager.currentUser?.uid,
-              let connectionId else { return }
+        guard let uid = authManager.currentUser?.uid, let connectionId else { return }
         guard canSend else {
             FondHaptics.error()
             startCooldownTimer()
             return
         }
-
-        withAnimation(.fondQuick) {
-            myStatus = status
-        }
+        withAnimation(.fondQuick) { myStatus = status }
         FondHaptics.statusChanged()
-        lastSendTime = Date()
+        lastSendTime = .now
         errorMessage = nil
 
         Task {
             do {
-                try await FirebaseManager.shared
-                    .updateStatus(
-                        uid: uid,
-                        connectionId: connectionId,
-                        status: status
-                    )
+                try await FirebaseManager.shared.updateStatus(
+                    uid: uid,
+                    connectionId: connectionId,
+                    status: status
+                )
+                await refreshThread()
             } catch {
                 errorMessage = error.localizedDescription
             }
@@ -336,9 +402,7 @@ struct ConnectedView: View {
     }
 
     private func sendMessage() {
-        let text = messageText.trimmingCharacters(
-            in: .whitespacesAndNewlines
-        )
+        let text = messageText.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty,
               let uid = authManager.currentUser?.uid,
               let connectionId else { return }
@@ -349,32 +413,23 @@ struct ConnectedView: View {
         }
 
         isSending = true
-        lastSendTime = Date()
+        lastSendTime = .now
         errorMessage = nil
-        let toSend = String(
-            text.prefix(FondConstants.maxMessageLength)
-        )
+        let toSend = String(text.prefix(FondConstants.maxMessageLength))
         messageText = ""
 
         Task {
             do {
-                try await FirebaseManager.shared
-                    .sendMessage(
-                        uid: uid,
-                        connectionId: connectionId,
-                        message: toSend
-                    )
+                try await FirebaseManager.shared.sendMessage(
+                    uid: uid,
+                    connectionId: connectionId,
+                    message: toSend
+                )
                 FondHaptics.messageSent()
-
-                withAnimation(.fondQuick) {
-                    sendSuccess = true
-                    lastSentMessage = toSend
-                    lastSentMessageTime = Date()
-                }
+                withAnimation(.fondQuick) { sendSuccess = true }
+                await refreshThread()
                 try? await Task.sleep(for: .seconds(1.2))
-                withAnimation(.fondQuick) {
-                    sendSuccess = false
-                }
+                withAnimation(.fondQuick) { sendSuccess = false }
             } catch {
                 errorMessage = error.localizedDescription
                 messageText = toSend
@@ -384,37 +439,34 @@ struct ConnectedView: View {
     }
 
     private func sendNudge() {
-        let now = Date()
+        let now = Date.now
         guard now.timeIntervalSince(lastNudgeTime) >= Double(FondConstants.nudgeCooldownSeconds) else {
             FondHaptics.error()
-            withAnimation(.fondQuick) { nudgeShakeOffset = 4 }
+            withAnimation(.interpolatingSpring(stiffness: 420, damping: 20)) {
+                nudgeResistance = -6
+            }
             Task { @MainActor in
-                try? await Task.sleep(for: .milliseconds(80))
-                withAnimation(.fondQuick) { nudgeShakeOffset = -4 }
-                try? await Task.sleep(for: .milliseconds(80))
-                withAnimation(.fondQuick) { nudgeShakeOffset = 4 }
-                try? await Task.sleep(for: .milliseconds(80))
-                withAnimation(.fondQuick) { nudgeShakeOffset = 0 }
+                try? await Task.sleep(for: .milliseconds(100))
+                withAnimation(.interpolatingSpring(stiffness: 420, damping: 20)) {
+                    nudgeResistance = 0
+                }
             }
             return
         }
-
-        guard let uid = authManager.currentUser?.uid,
-              let connectionId else { return }
+        guard let uid = authManager.currentUser?.uid, let connectionId else { return }
 
         lastNudgeTime = now
-        FondHaptics.messageSent()
-        nudgeHintVisible = false
-
-        withAnimation(.fondQuick) { nudgeScale = 1.02 }
+        FondHaptics.nudgeSent()
+        withAnimation(.easeOut(duration: 0.12)) { nudgeEdgePulse = true }
         Task { @MainActor in
-            try? await Task.sleep(for: .milliseconds(200))
-            withAnimation(.fondQuick) { nudgeScale = 1.0 }
+            try? await Task.sleep(for: .milliseconds(120))
+            nudgeEdgePulse = false
         }
 
         Task {
             do {
                 try await FirebaseManager.shared.sendNudge(uid: uid, connectionId: connectionId)
+                await refreshThread()
             } catch {
                 logger.error("Nudge failed: \(error.localizedDescription)")
             }
@@ -424,7 +476,9 @@ struct ConnectedView: View {
     private func dismissKeyboard() {
         UIApplication.shared.sendAction(
             #selector(UIResponder.resignFirstResponder),
-            to: nil, from: nil, for: nil
+            to: nil,
+            from: nil,
+            for: nil
         )
     }
 }
