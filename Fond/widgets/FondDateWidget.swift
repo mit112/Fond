@@ -1,21 +1,6 @@
-//
-//  FondDateWidget.swift
-//  widgets
-//
-//  Fond date widgets — days-together counter and countdown timer.
-//  Reads dates from App Group UserDefaults. Pure client-side date math.
-//
-//  Separate from the main FondWidget so users can place both on
-//  their home screen simultaneously.
-//
-//  Families: accessoryInline, accessoryCircular, systemSmall.
-//
-
 import AppIntents
 import WidgetKit
 import SwiftUI
-
-// MARK: - Timeline Entry
 
 struct FondDateEntry: TimelineEntry {
     let date: Date
@@ -26,29 +11,31 @@ struct FondDateEntry: TimelineEntry {
     let connectionState: ConnectionState
 
     var daysTogether: Int? {
-        guard let anniversary = anniversaryDate else { return nil }
-        return max(0, Calendar.current.dateComponents([.day], from: anniversary, to: date).day ?? 0)
+        guard let anniversaryDate else { return nil }
+        return max(
+            0,
+            Calendar.current.dateComponents([.day], from: anniversaryDate, to: date).day ?? 0
+        )
     }
 
     var daysUntilCountdown: Int? {
-        guard let countdown = countdownDate else { return nil }
-        let days = Calendar.current.dateComponents([.day], from: date, to: countdown).day ?? 0
-        return days >= 0 ? days : nil // nil if in the past
+        guard let countdownDate else { return nil }
+        let days = Calendar.current.dateComponents([.day], from: date, to: countdownDate).day ?? 0
+        return days >= 0 ? days : nil
     }
 
-    /// True if countdown date is today or just passed (within 24h).
     var isCountdownToday: Bool {
-        guard let countdown = countdownDate else { return false }
-        return Calendar.current.isDateInToday(countdown)
+        guard let countdownDate else { return false }
+        return Calendar.current.isDateInToday(countdownDate)
     }
 
     static var placeholder: FondDateEntry {
         FondDateEntry(
             date: .now,
-            partnerName: "Alex",
-            anniversaryDate: Calendar.current.date(byAdding: .day, value: -347, to: .now),
-            countdownDate: Calendar.current.date(byAdding: .day, value: 14, to: .now),
-            countdownLabel: "NYC trip",
+            partnerName: "Maya",
+            anniversaryDate: Calendar.current.date(byAdding: .day, value: -412, to: .now),
+            countdownDate: Calendar.current.date(byAdding: .day, value: 18, to: .now),
+            countdownLabel: "Lisbon",
             connectionState: .connected
         )
     }
@@ -65,14 +52,10 @@ struct FondDateEntry: TimelineEntry {
     }
 }
 
-// MARK: - Timeline Provider
-
 struct FondDateTimelineProvider: AppIntentTimelineProvider {
     typealias Intent = FondDateWidgetConfigIntent
 
-    func placeholder(in context: Context) -> FondDateEntry {
-        .placeholder
-    }
+    func placeholder(in context: Context) -> FondDateEntry { .placeholder }
 
     func snapshot(for configuration: Intent, in context: Context) async -> FondDateEntry {
         readEntry()
@@ -80,9 +63,9 @@ struct FondDateTimelineProvider: AppIntentTimelineProvider {
 
     func timeline(for configuration: Intent, in context: Context) async -> Timeline<FondDateEntry> {
         let entry = readEntry()
-        // Refresh at midnight so the day count updates
         let midnight = Calendar.current.startOfDay(
-            for: Calendar.current.date(byAdding: .day, value: 1, to: .now) ?? .now.addingTimeInterval(86400)
+            for: Calendar.current.date(byAdding: .day, value: 1, to: .now)
+                ?? .now.addingTimeInterval(86_400)
         )
         return Timeline(entries: [entry], policy: .after(midnight))
     }
@@ -92,18 +75,21 @@ struct FondDateTimelineProvider: AppIntentTimelineProvider {
         let config = FondDateWidgetConfigIntent()
         let calendar = Calendar.current
 
-        // Boost around midnight when the day count changes
         let tomorrow = calendar.startOfDay(
-            for: calendar.date(byAdding: .day, value: 1, to: .now) ?? .now.addingTimeInterval(86400)
+            for: calendar.date(byAdding: .day, value: 1, to: .now)
+                ?? .now.addingTimeInterval(86_400)
         )
-        let midnightStart = tomorrow.addingTimeInterval(Double(-FondConstants.relevanceMidnightWindowMinutes) * 60)
-        let midnightEnd = tomorrow.addingTimeInterval(Double(FondConstants.relevanceMidnightWindowMinutes) * 60)
+        let midnightStart = tomorrow.addingTimeInterval(
+            Double(-FondConstants.relevanceMidnightWindowMinutes) * 60
+        )
+        let midnightEnd = tomorrow.addingTimeInterval(
+            Double(FondConstants.relevanceMidnightWindowMinutes) * 60
+        )
         attributes.append(WidgetRelevanceAttribute(
             configuration: config,
             context: .date(range: midnightStart...midnightEnd, kind: .scheduled)
         ))
 
-        // If there's a countdown date, boost on that date
         if let defaults = UserDefaults(suiteName: FondConstants.appGroupID),
            let countdownDate = defaults.object(forKey: FondConstants.countdownDateKey) as? Date {
             let countdownStart = calendar.startOfDay(for: countdownDate)
@@ -115,7 +101,6 @@ struct FondDateTimelineProvider: AppIntentTimelineProvider {
                 ))
             }
         }
-
         return WidgetRelevance(attributes)
     }
 
@@ -123,48 +108,35 @@ struct FondDateTimelineProvider: AppIntentTimelineProvider {
         guard let defaults = UserDefaults(suiteName: FondConstants.appGroupID) else {
             return .notConnected
         }
-
         let stateRaw = defaults.string(forKey: FondConstants.connectionStateKey)
-        let connectionState = stateRaw.flatMap { ConnectionState(rawValue: $0) } ?? .unpaired
-
-        guard connectionState == .connected else {
-            return .notConnected
-        }
-
-        let anniversary = defaults.object(forKey: FondConstants.anniversaryDateKey) as? Date
-        let countdown = defaults.object(forKey: FondConstants.countdownDateKey) as? Date
-        let countdownLabel = defaults.string(forKey: FondConstants.countdownLabelKey)
-        let partnerName = defaults.string(forKey: FondConstants.partnerNameKey)
+        let connectionState = stateRaw.flatMap(ConnectionState.init(rawValue:)) ?? .unpaired
+        guard connectionState == .connected else { return .notConnected }
 
         return FondDateEntry(
             date: .now,
-            partnerName: partnerName,
-            anniversaryDate: anniversary,
-            countdownDate: countdown,
-            countdownLabel: countdownLabel,
+            partnerName: defaults.string(forKey: FondConstants.partnerNameKey),
+            anniversaryDate: defaults.object(forKey: FondConstants.anniversaryDateKey) as? Date,
+            countdownDate: defaults.object(forKey: FondConstants.countdownDateKey) as? Date,
+            countdownLabel: defaults.string(forKey: FondConstants.countdownLabelKey),
             connectionState: .connected
         )
     }
 }
 
-// MARK: - Views
-
-/// accessoryInline: "Day 347 with Alex 💛" or "14 days until NYC ✈️"
 struct DateInlineView: View {
     let entry: FondDateEntry
 
     var body: some View {
         if let days = entry.daysTogether, let name = entry.partnerName {
-            Text("Day \(days) with \(name) 💛")
+            Text("\(days) \(days == 1 ? "day" : "days") with \(name)")
         } else if let days = entry.daysUntilCountdown, let label = entry.countdownLabel {
-            Text("\(days)d until \(label) ✈️")
+            Text("\(days) \(days == 1 ? "day" : "days") until \(label)")
         } else {
-            Text("Fond — Set your date")
+            Text("Fond · set your date")
         }
     }
 }
 
-/// accessoryCircular: Large number, "days" label.
 struct DateCircularView: View {
     let entry: FondDateEntry
 
@@ -172,277 +144,208 @@ struct DateCircularView: View {
         if let days = entry.daysTogether {
             VStack(spacing: 0) {
                 Text("\(days)")
-                    .font(.system(.title2, design: .rounded).bold())
-                    .minimumScaleFactor(0.6)
+                    .font(FondWidgetType.value(size: 27))
+                    .minimumScaleFactor(0.55)
                 Text("days")
-                    .font(.system(size: 9))
+                    .font(.system(size: 9, weight: .medium))
                     .foregroundStyle(.secondary)
             }
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("\(days) days together")
         } else {
-            VStack(spacing: 2) {
-                Image(systemName: "heart")
-                    .font(.title3)
-                Text("—")
-                    .font(.caption2)
+            VStack(spacing: 1) {
+                Text("F").font(FondWidgetType.name(size: 22))
+                Text("set date").font(.system(size: 8)).foregroundStyle(.secondary)
             }
-            .foregroundStyle(.secondary)
         }
     }
 }
 
-/// systemSmall: Hero number, label, partner name.
 struct DateSmallView: View {
     let entry: FondDateEntry
-    @Environment(\.widgetRenderingMode) var renderingMode
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
 
     var body: some View {
+        let style = FondWidgetStyle(renderingMode: renderingMode)
         if entry.connectionState != .connected {
-            notConnectedView
+            notConnected(style)
         } else if let days = entry.daysTogether {
-            daysTogether(days)
-        } else {
-            setupPromptView
-        }
-    }
-
-    private func daysTogether(_ days: Int) -> some View {
-        VStack(spacing: 6) {
-            Text("\(days)")
-                .font(.system(size: 48, weight: .bold, design: .rounded))
-                .foregroundStyle(textPrimary)
-                .minimumScaleFactor(0.5)
-
-            Text("days together")
-                .font(.caption.weight(.medium))
-                .foregroundStyle(textSecondary)
-
-            if let name = entry.partnerName {
-                Text("with \(name) 💛")
-                    .font(.caption2)
-                    .foregroundStyle(textSecondary.opacity(0.8))
-            }
-
-            // Show countdown below if set
-            if let countdownDays = entry.daysUntilCountdown {
-                Divider().opacity(0.3)
-                HStack(spacing: 4) {
-                    Text("✈️")
+            VStack(alignment: .leading, spacing: 6) {
+                Text("TOGETHER")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(style.secondary)
+                Text("\(days)")
+                    .font(FondWidgetType.value(size: 46))
+                    .foregroundStyle(style.primary)
+                    .minimumScaleFactor(0.62)
+                Text(days == 1 ? "day" : "days")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(style.secondary)
+                Spacer(minLength: 0)
+                if !isLuminanceReduced, let name = entry.partnerName {
+                    Text("with \(name)")
                         .font(.caption2)
-                    Text("\(countdownDays)d")
-                        .font(.caption2.weight(.semibold))
-                        .foregroundStyle(renderingMode == .fullColor ? FondColors.amber : textPrimary)
-                    if let label = entry.countdownLabel {
-                        Text(label)
-                            .font(.caption2)
-                            .foregroundStyle(textSecondary)
-                            .lineLimit(1)
-                    }
+                        .foregroundStyle(style.secondary)
+                        .lineLimit(1)
+                }
+                if !isLuminanceReduced,
+                   let countdownDays = entry.daysUntilCountdown,
+                   let label = entry.countdownLabel,
+                   !label.isEmpty {
+                    Rectangle().fill(FondColors.amber).frame(height: 1).widgetAccentable()
+                    Text("\(countdownDays) until \(label)")
+                        .font(.caption2.monospacedDigit())
+                        .foregroundStyle(style.secondary)
+                        .lineLimit(1)
                 }
             }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+        } else {
+            setup(style)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
 
-    private var notConnectedView: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "heart")
-                .font(.largeTitle)
-                .foregroundStyle(textSecondary)
-            Text("Not Connected")
+    private func notConnected(_ style: FondWidgetStyle) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Fond").font(FondWidgetType.name(size: 30)).foregroundStyle(style.primary)
+            Text("Connect to begin counting")
                 .font(.caption)
-                .foregroundStyle(textSecondary)
+                .foregroundStyle(style.secondary)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
-    private var setupPromptView: some View {
-        VStack(spacing: 8) {
-            Image(systemName: "calendar.badge.plus")
-                .font(.title2)
-                .foregroundStyle(textSecondary)
-            Text("Set your\nanniversary")
+    private func setup(_ style: FondWidgetStyle) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Together")
+                .font(FondWidgetType.name(size: 30))
+                .foregroundStyle(style.primary)
+            Rectangle().fill(FondColors.amber).frame(height: 1).widgetAccentable()
+            Text("Set your anniversary in Fond")
                 .font(.caption)
-                .foregroundStyle(textSecondary)
-                .multilineTextAlignment(.center)
+                .foregroundStyle(style.secondary)
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private var textPrimary: Color {
-        renderingMode == .fullColor ? FondColors.text : .primary
-    }
-
-    private var textSecondary: Color {
-        renderingMode == .fullColor ? FondColors.textSecondary : .secondary
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 }
 
-/// systemMedium: Split — days-together left, countdown right.
 struct DateMediumView: View {
     let entry: FondDateEntry
-    @Environment(\.widgetRenderingMode) var renderingMode
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
 
     var body: some View {
+        let style = FondWidgetStyle(renderingMode: renderingMode)
         if entry.connectionState != .connected {
-            notConnectedView
+            HStack(spacing: 14) {
+                Text("Fond").font(FondWidgetType.name(size: 36)).foregroundStyle(style.primary)
+                WidgetVoiceRule()
+                Text("Connect to start your shared count")
+                    .font(.callout)
+                    .foregroundStyle(style.secondary)
+                Spacer(minLength: 0)
+            }
         } else {
-            HStack(spacing: 0) {
-                // Left: days together
-                VStack(spacing: 6) {
-                    if let days = entry.daysTogether {
-                        Text("\(days)")
-                            .font(.system(size: 44, weight: .bold, design: .rounded))
-                            .foregroundStyle(textPrimary)
-                            .minimumScaleFactor(0.5)
-                        Text("days together")
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(textSecondary)
-                        if let name = entry.partnerName {
-                            Text("with \(name) 💛")
-                                .font(.caption2)
-                                .foregroundStyle(textSecondary.opacity(0.8))
-                        }
-                    } else {
-                        Image(systemName: "calendar.badge.plus")
-                            .font(.title2)
-                            .foregroundStyle(textSecondary)
-                        Text("Set anniversary\nin Fond")
-                            .font(.caption)
-                            .foregroundStyle(textSecondary)
-                            .multilineTextAlignment(.center)
+            HStack(spacing: 16) {
+                dateColumn(
+                    eyebrow: "TOGETHER",
+                    value: entry.daysTogether.map(String.init) ?? "—",
+                    detail: entry.partnerName.map { "days with \($0)" } ?? "days together",
+                    style: style
+                )
+                WidgetVoiceRule()
+                if let days = entry.daysUntilCountdown {
+                    dateColumn(
+                        eyebrow: "COUNTDOWN",
+                        value: String(days),
+                        detail: entry.countdownLabel.flatMap { $0.isEmpty ? nil : "until \($0)" }
+                            ?? "days to go",
+                        style: style
+                    )
+                } else if !isLuminanceReduced {
+                    VStack(alignment: .leading, spacing: 7) {
+                        Text("COUNTDOWN")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(style.secondary)
+                        Text("Set the next date in Fond")
+                            .font(FondWidgetType.voice(size: 17))
+                            .foregroundStyle(style.primary)
                     }
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                // Divider
-                if entry.daysUntilCountdown != nil {
-                    Rectangle()
-                        .fill(textSecondary.opacity(0.2))
-                        .frame(width: 1)
-                        .padding(.vertical, 12)
-                }
-
-                // Right: countdown (if set)
-                if let countdownDays = entry.daysUntilCountdown {
-                    VStack(spacing: 6) {
-                        Text("\(countdownDays)")
-                            .font(.system(size: 44, weight: .bold, design: .rounded))
-                            .foregroundStyle(renderingMode == .fullColor ? FondColors.amber : textPrimary)
-                            .minimumScaleFactor(0.5)
-                        Text("days until")
-                            .font(.caption.weight(.medium))
-                            .foregroundStyle(textSecondary)
-                        if let label = entry.countdownLabel, !label.isEmpty {
-                            Text(label)
-                                .font(.caption2)
-                                .foregroundStyle(textSecondary.opacity(0.8))
-                                .lineLimit(1)
-                        }
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if entry.isCountdownToday {
-                    VStack(spacing: 6) {
-                        Text("🎉")
-                            .font(.system(size: 36))
-                        Text("It's here!")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(renderingMode == .fullColor ? FondColors.amber : textPrimary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
                 }
             }
         }
     }
 
-    private var notConnectedView: some View {
-        HStack(spacing: 12) {
-            Image(systemName: "heart")
-                .font(.largeTitle)
-                .foregroundStyle(textSecondary)
-            VStack(alignment: .leading, spacing: 2) {
-                Text("Fond")
-                    .font(.headline)
-                    .foregroundStyle(textPrimary)
-                Text("Open app to connect")
-                    .font(.caption)
-                    .foregroundStyle(textSecondary)
-            }
+    private func dateColumn(
+        eyebrow: String,
+        value: String,
+        detail: String,
+        style: FondWidgetStyle
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            Text(eyebrow).font(.caption2.weight(.semibold)).foregroundStyle(style.secondary)
+            Text(value)
+                .font(FondWidgetType.value(size: 44))
+                .foregroundStyle(style.primary)
+                .minimumScaleFactor(0.62)
+            Text(detail)
+                .font(.caption)
+                .foregroundStyle(style.secondary)
+                .lineLimit(1)
             Spacer(minLength: 0)
         }
-        .padding(.horizontal, 4)
-    }
-
-    private var textPrimary: Color {
-        renderingMode == .fullColor ? FondColors.text : .primary
-    }
-
-    private var textSecondary: Color {
-        renderingMode == .fullColor ? FondColors.textSecondary : .secondary
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 }
 
-// MARK: - Widget Entry View
-
 struct FondDateWidgetEntryView: View {
-    @Environment(\.widgetFamily) var family
+    @Environment(\.widgetFamily) private var family
     let entry: FondDateEntry
 
     var body: some View {
         switch family {
-        case .accessoryInline:
-            DateInlineView(entry: entry)
-        case .accessoryCircular:
-            DateCircularView(entry: entry)
-        case .systemSmall:
-            DateSmallView(entry: entry)
-        case .systemMedium:
-            DateMediumView(entry: entry)
-        default:
-            DateSmallView(entry: entry)
+        case .accessoryInline: DateInlineView(entry: entry)
+        case .accessoryCircular: DateCircularView(entry: entry)
+        case .systemSmall: DateSmallView(entry: entry)
+        case .systemMedium: DateMediumView(entry: entry)
+        default: DateSmallView(entry: entry)
         }
     }
 }
-
-// MARK: - Widget Definition
 
 struct FondDateWidget: Widget {
     let kind = "FondDateWidget"
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: kind, intent: FondDateWidgetConfigIntent.self, provider: FondDateTimelineProvider()) { entry in
+        AppIntentConfiguration(
+            kind: kind,
+            intent: FondDateWidgetConfigIntent.self,
+            provider: FondDateTimelineProvider()
+        ) { entry in
             FondDateWidgetEntryView(entry: entry)
                 .widgetURL(URL(string: "fond://open")!)
-                .containerBackground(for: .widget) {
-                    FondColors.background
-                }
+                .containerBackground(for: .widget) { WidgetKeepsakeBackground() }
         }
         .configurationDisplayName("Days Together")
         .description("Count the days with your person. Set a countdown for your next visit.")
-        .supportedFamilies([
-            .accessoryInline,
-            .accessoryCircular,
-            .systemSmall,
-            .systemMedium,
-        ])
+        .supportedFamilies([.accessoryInline, .accessoryCircular, .systemSmall, .systemMedium])
     }
 }
 
-// MARK: - Previews
-
-#Preview("Small — Connected", as: .systemSmall) {
+#Preview("Date — Small", as: .systemSmall) {
     FondDateWidget()
-} timeline: {
-    FondDateEntry.placeholder
-}
+} timeline: { FondDateEntry.placeholder; FondDateEntry.notConnected }
 
-#Preview("Medium — Both Dates", as: .systemMedium) {
+#Preview("Date — Medium", as: .systemMedium) {
     FondDateWidget()
-} timeline: {
-    FondDateEntry.placeholder
-}
+} timeline: { FondDateEntry.placeholder }
 
-#Preview("Circular", as: .accessoryCircular) {
+#Preview("Date — Circular", as: .accessoryCircular) {
     FondDateWidget()
-} timeline: {
-    FondDateEntry.placeholder
-}
+} timeline: { FondDateEntry.placeholder }
+
+#Preview("Date — Inline", as: .accessoryInline) {
+    FondDateWidget()
+} timeline: { FondDateEntry.placeholder }

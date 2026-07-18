@@ -1,25 +1,6 @@
-//
-//  FondWidget.swift
-//  widgets
-//
-//  Fond widget — shows partner's status, name, and message.
-//  Reads decrypted data from App Group UserDefaults.
-//  Supports: accessoryInline, accessoryCircular, accessoryRectangular,
-//            systemSmall, systemMedium.
-//
-//  iOS 26 Liquid Glass: Uses widgetRenderingMode to adapt:
-//    - .fullColor: warm Fond colors on home screen
-//    - .accented: system handles tinting (warm amber accent color)
-//    - .vibrant: lock screen — white on translucent
-//
-//  Design reference: docs/02-design-direction.md
-//
-
 import AppIntents
 import WidgetKit
 import SwiftUI
-
-// MARK: - Timeline Entry
 
 struct FondEntry: TimelineEntry {
     let date: Date
@@ -28,23 +9,62 @@ struct FondEntry: TimelineEntry {
     let message: String?
     let lastUpdated: Date?
     let connectionState: ConnectionState
-
-    // Daily prompt (optional — shown when available)
     let promptText: String?
     let myPromptAnswer: String?
     let partnerPromptAnswer: String?
 
+    var sharedWords: String? {
+        let candidate = partnerPromptAnswer ?? message
+        guard let text = candidate?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !text.isEmpty,
+              text != "💛" else { return nil }
+        return text
+    }
+
+    var isStale: Bool {
+        guard let lastUpdated else { return false }
+        return date.timeIntervalSince(lastUpdated) > 3_600
+    }
+
     static var placeholder: FondEntry {
         FondEntry(
             date: .now,
-            partnerName: "Alex",
+            partnerName: "Maya",
             status: .available,
-            message: "Thinking of you 💛",
-            lastUpdated: Date().addingTimeInterval(-300),
+            message: "I saved you the window seat.",
+            lastUpdated: Date().addingTimeInterval(-360),
             connectionState: .connected,
             promptText: "What's a song that reminds you of us?",
-            myPromptAnswer: "Our Song by Taylor Swift",
-            partnerPromptAnswer: "Yellow by Coldplay"
+            myPromptAnswer: nil,
+            partnerPromptAnswer: nil
+        )
+    }
+
+    static var stale: FondEntry {
+        FondEntry(
+            date: .now,
+            partnerName: "Maya",
+            status: .sleeping,
+            message: "Call me when you wake up.",
+            lastUpdated: Date().addingTimeInterval(-7_200),
+            connectionState: .connected,
+            promptText: nil,
+            myPromptAnswer: nil,
+            partnerPromptAnswer: nil
+        )
+    }
+
+    static var missingMessage: FondEntry {
+        FondEntry(
+            date: .now,
+            partnerName: "Maya",
+            status: .busy,
+            message: nil,
+            lastUpdated: Date().addingTimeInterval(-540),
+            connectionState: .connected,
+            promptText: nil,
+            myPromptAnswer: nil,
+            partnerPromptAnswer: nil
         )
     }
 
@@ -63,14 +83,10 @@ struct FondEntry: TimelineEntry {
     }
 }
 
-// MARK: - Timeline Provider
-
 struct FondTimelineProvider: AppIntentTimelineProvider {
     typealias Intent = FondWidgetConfigIntent
 
-    func placeholder(in context: Context) -> FondEntry {
-        .placeholder
-    }
+    func placeholder(in context: Context) -> FondEntry { .placeholder }
 
     func snapshot(for configuration: Intent, in context: Context) async -> FondEntry {
         readEntry()
@@ -86,10 +102,11 @@ struct FondTimelineProvider: AppIntentTimelineProvider {
         var attributes: [WidgetRelevanceAttribute<Intent>] = []
         let config = FondWidgetConfigIntent()
 
-        // Boost after partner's last status/message update
         if let defaults = UserDefaults(suiteName: FondConstants.appGroupID),
            let lastUpdated = defaults.object(forKey: FondConstants.partnerLastUpdatedKey) as? Date {
-            let boostEnd = lastUpdated.addingTimeInterval(Double(FondConstants.relevancePartnerBoostMinutes) * 60)
+            let boostEnd = lastUpdated.addingTimeInterval(
+                Double(FondConstants.relevancePartnerBoostMinutes) * 60
+            )
             if boostEnd > .now {
                 attributes.append(WidgetRelevanceAttribute(
                     configuration: config,
@@ -98,7 +115,6 @@ struct FondTimelineProvider: AppIntentTimelineProvider {
             }
         }
 
-        // Daily relevance around morning check-in
         let calendar = Calendar.current
         let leadMin = FondConstants.relevanceWindowLeadMinutes
         let trailMin = FondConstants.relevanceWindowTrailMinutes
@@ -122,7 +138,6 @@ struct FondTimelineProvider: AppIntentTimelineProvider {
             ))
         }
 
-        // Daily relevance around evening check-in
         if let eveningStart = calendar.date(
             bySettingHour: FondConstants.relevanceEveningHour - 1,
             minute: 60 - leadMin,
@@ -149,19 +164,15 @@ struct FondTimelineProvider: AppIntentTimelineProvider {
         guard let defaults = UserDefaults(suiteName: FondConstants.appGroupID) else {
             return .notConnected
         }
-
         let stateRaw = defaults.string(forKey: FondConstants.connectionStateKey)
-        let connectionState = stateRaw.flatMap { ConnectionState(rawValue: $0) } ?? .unpaired
-
-        guard connectionState == .connected else {
-            return .notConnected
-        }
+        let connectionState = stateRaw.flatMap(ConnectionState.init(rawValue:)) ?? .unpaired
+        guard connectionState == .connected else { return .notConnected }
 
         return FondEntry(
             date: .now,
             partnerName: defaults.string(forKey: FondConstants.partnerNameKey),
             status: defaults.string(forKey: FondConstants.partnerStatusKey)
-                .flatMap { UserStatus(rawValue: $0) },
+                .flatMap(UserStatus.init(rawValue:)),
             message: defaults.string(forKey: FondConstants.partnerMessageKey),
             lastUpdated: defaults.object(forKey: FondConstants.partnerLastUpdatedKey) as? Date,
             connectionState: .connected,
@@ -172,276 +183,259 @@ struct FondTimelineProvider: AppIntentTimelineProvider {
     }
 }
 
-// MARK: - Widget Views
-
-/// accessoryInline: "Alex is available 💚"
 struct FondInlineView: View {
     let entry: FondEntry
 
     var body: some View {
         if let name = entry.partnerName, let status = entry.status {
-            Text("\(name) is \(status.displayName.lowercased()) \(status.emoji)")
+            Text("\(name) · \(status.displayName.lowercased()) · \(freshness)")
+                .accessibilityLabel(
+                    "\(name), \(status.displayName), updated \(freshness) ago"
+                )
         } else {
-            Text("Fond — Not connected")
+            Text("Fond · not connected")
         }
+    }
+
+    private var freshness: String {
+        entry.lastUpdated?.widgetFreshness(relativeTo: entry.date) ?? "—"
     }
 }
 
-/// accessoryCircular: Status emoji + time ago
 struct FondCircularView: View {
     let entry: FondEntry
 
     var body: some View {
-        if let status = entry.status {
+        if let name = entry.partnerName, let status = entry.status {
             VStack(spacing: 2) {
-                Text(status.emoji)
-                    .font(.title2)
-                if let lastUpdated = entry.lastUpdated {
-                    Text(lastUpdated.shortTimeAgo)
-                        .font(.system(size: 9))
-                        .foregroundStyle(.secondary)
-                }
+                Text(String(name.prefix(1)))
+                    .font(FondWidgetType.name(size: 28))
+                    .minimumScaleFactor(0.8)
+                WidgetStatusDot(status: status, size: 6)
             }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(name), \(status.displayName)")
         } else {
-            Image(systemName: "heart.slash")
-                .font(.title3)
+            Text("F")
+                .font(FondWidgetType.name(size: 26))
                 .foregroundStyle(.secondary)
+                .accessibilityLabel("Fond, not connected")
         }
     }
 }
 
-/// accessoryRectangular: Name + status + message or prompt preview
 struct FondRectangularView: View {
     let entry: FondEntry
 
     var body: some View {
         if let name = entry.partnerName, let status = entry.status {
-            VStack(alignment: .leading, spacing: 2) {
-                Text("\(status.emoji) \(name)")
-                    .font(.headline)
-                    .lineLimit(1)
-                Text(status.displayName)
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                // Show prompt answer if available, otherwise message
-                if entry.promptText != nil,
-                   let answer = entry.partnerPromptAnswer {
-                    Text("💬 \(answer)")
-                        .font(.caption)
+            VStack(alignment: .leading, spacing: 3) {
+                HStack(spacing: 5) {
+                    WidgetStatusDot(status: status)
+                    Text("\(name) · \(status.displayName.lowercased())")
+                        .font(.headline)
                         .lineLimit(1)
+                }
+                if let words = entry.sharedWords {
+                    Text(words)
+                        .font(FondWidgetType.voice(size: 13))
                         .foregroundStyle(.secondary)
-                } else if let message = entry.message, !message.isEmpty {
-                    Text(message)
-                        .font(.caption)
                         .lineLimit(1)
-                        .foregroundStyle(.secondary)
                 }
             }
         } else {
             VStack(alignment: .leading, spacing: 2) {
-                Text("Fond")
-                    .font(.headline)
-                Text("Not connected")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
+                Text("Fond").font(.headline)
+                Text("Not connected").font(.caption).foregroundStyle(.secondary)
             }
         }
     }
 }
 
-/// systemSmall: Compact home screen view — emoji hero, name, status.
-/// Optimized for StandBy mode: large emoji readable from across the room.
 struct FondSmallView: View {
     let entry: FondEntry
-    @Environment(\.widgetRenderingMode) var renderingMode
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
 
     var body: some View {
+        let style = FondWidgetStyle(renderingMode: renderingMode)
         if let name = entry.partnerName, let status = entry.status {
-            VStack(spacing: 6) {
-                Spacer(minLength: 0)
-
-                // Emoji is the dominant visual — readable from across the room in StandBy
-                Text(status.emoji)
-                    .font(.system(size: 52))
-                    .contentTransition(.numericText())
-
-                Text(name)
-                    .font(.headline.weight(.semibold))
-                    .foregroundStyle(textPrimary)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.7)
-
-                Text(status.displayName)
-                    .font(.subheadline)
-                    .foregroundStyle(
-                        renderingMode == .fullColor
-                            ? status.statusColor
-                            : textSecondary
-                    )
-
-                Spacer(minLength: 0)
-
-                if let lastUpdated = entry.lastUpdated {
-                    Text(lastUpdated.shortTimeAgo)
-                        .font(.caption2)
-                        .foregroundStyle(textSecondary.opacity(0.7))
-                }
+            ViewThatFits {
+                connected(
+                    name: name,
+                    status: status,
+                    style: style,
+                    nameSize: widgetNameSize,
+                    showsFreshness: true
+                )
+                connected(
+                    name: name,
+                    status: status,
+                    style: style,
+                    nameSize: widgetNameSize,
+                    showsFreshness: false
+                )
+                connected(
+                    name: name,
+                    status: status,
+                    style: style,
+                    nameSize: widgetNameSize - 4,
+                    showsFreshness: false
+                )
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else {
-            VStack(spacing: 8) {
-                Image(systemName: "heart")
-                    .font(.largeTitle)
-                    .foregroundStyle(textSecondary)
-                    .widgetAccentable()
-                Text("Not Connected")
-                    .font(.caption)
-                    .foregroundStyle(textSecondary)
-            }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            notConnected(style)
         }
     }
 
-    private var textPrimary: Color {
-        renderingMode == .fullColor ? FondColors.text : .primary
+    private func connected(
+        name: String,
+        status: UserStatus,
+        style: FondWidgetStyle,
+        nameSize: CGFloat,
+        showsFreshness: Bool
+    ) -> some View {
+        VStack(alignment: .leading, spacing: 7) {
+            HStack(spacing: 6) {
+                WidgetStatusDot(status: status, size: 7)
+                Text(status.displayName.lowercased())
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(style.secondary)
+            }
+
+            Text(name)
+                .font(FondWidgetType.name(size: nameSize))
+            .foregroundStyle(style.primary)
+            .lineLimit(1)
+
+            if !isLuminanceReduced, let words = entry.sharedWords {
+                Text(words)
+                    .font(FondWidgetType.voice())
+                    .foregroundStyle(style.primary)
+                    .lineLimit(2)
+            }
+
+            Spacer(minLength: 0)
+
+            if showsFreshness, let lastUpdated = entry.lastUpdated {
+                Text("\(entry.isStale ? "last seen" : "updated") \(lastUpdated.widgetFreshness(relativeTo: entry.date))")
+                    .font(.caption2.monospacedDigit())
+                    .foregroundStyle(isLuminanceReduced ? style.primary : style.secondary)
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
     }
 
-    private var textSecondary: Color {
-        renderingMode == .fullColor ? FondColors.textSecondary : .secondary
+    private func notConnected(_ style: FondWidgetStyle) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Fond")
+                .font(FondWidgetType.name(size: 30))
+                .foregroundStyle(style.primary)
+            Text("Connect with your person")
+                .font(.caption)
+                .foregroundStyle(style.secondary)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .leading)
+    }
+
+    private var widgetNameSize: CGFloat {
+        #if os(watchOS)
+        22
+        #else
+        30
+        #endif
     }
 }
 
-/// systemMedium: Full status + message — the flagship widget.
 struct FondMediumView: View {
     let entry: FondEntry
-    @Environment(\.widgetRenderingMode) var renderingMode
+    @Environment(\.widgetRenderingMode) private var renderingMode
+    @Environment(\.isLuminanceReduced) private var isLuminanceReduced
 
     var body: some View {
+        let style = FondWidgetStyle(renderingMode: renderingMode)
         if let name = entry.partnerName, let status = entry.status {
-            HStack(spacing: 14) {
-                // Left: emoji anchor
-                VStack {
-                    Text(status.emoji)
-                        .font(.system(size: 52))
-                        .contentTransition(.numericText())
-                    Spacer(minLength: 0)
-                }
-
-                // Right: text stack
-                VStack(alignment: .leading, spacing: 3) {
-                    Text(name)
-                        .font(.headline.weight(.bold))
-                        .foregroundStyle(textPrimary)
-                        .lineLimit(1)
-
-                    Text(status.displayName)
-                        .font(.subheadline)
-                        .foregroundStyle(
-                            renderingMode == .fullColor
-                                ? status.statusColor
-                                : textSecondary
-                        )
-
-                    if let message = entry.message, !message.isEmpty {
-                        Text(message)
-                            .font(.callout)
-                            .foregroundStyle(textPrimary.opacity(0.85))
-                            .lineLimit(2)
-                            .padding(.top, 1)
+            GeometryReader { proxy in
+                HStack(spacing: 12) {
+                    VStack(alignment: .leading, spacing: 7) {
+                        HStack(spacing: 6) {
+                            WidgetStatusDot(status: status, size: 7)
+                            Text(status.displayName.lowercased())
+                                .font(.caption.weight(.medium))
+                                .foregroundStyle(style.secondary)
+                        }
+                        ViewThatFits(in: .horizontal) {
+                            Text(name).font(FondWidgetType.name(size: 34))
+                            Text(name).font(FondWidgetType.name(size: 30))
+                        }
+                        .foregroundStyle(style.primary)
+                        .lineLimit(2)
+                        Spacer(minLength: 0)
                     }
+                    .frame(width: proxy.size.width * 0.38, alignment: .leading)
 
-                    Spacer(minLength: 0)
+                    WidgetVoiceRule()
 
-                    // Footer: time ago or prompt teaser
-                    if let prompt = entry.promptText,
-                       entry.myPromptAnswer == nil {
-                        Text("💬 \(prompt)")
-                            .font(.caption2)
-                            .foregroundStyle(
-                                renderingMode == .fullColor
-                                    ? FondColors.amber
-                                    : textSecondary
-                            )
-                            .lineLimit(1)
-                    } else if let lastUpdated = entry.lastUpdated {
-                        Text(lastUpdated.shortTimeAgo)
-                            .font(.caption2)
-                            .foregroundStyle(textSecondary.opacity(0.7))
+                    VStack(alignment: .leading, spacing: 8) {
+                        if !isLuminanceReduced, let words = entry.sharedWords {
+                            Text(words)
+                                .font(FondWidgetType.voice(size: 18))
+                                .foregroundStyle(style.primary)
+                                .lineLimit(2)
+                        }
+                        Spacer(minLength: 0)
+                        if let lastUpdated = entry.lastUpdated {
+                            Text("\(entry.isStale ? "last seen" : "updated") \(lastUpdated.widgetFreshness(relativeTo: entry.date))")
+                                .font(.caption2.monospacedDigit())
+                                .foregroundStyle(isLuminanceReduced ? style.primary : style.secondary)
+                        }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
-
-                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 2)
         } else {
             HStack(spacing: 12) {
-                Image(systemName: "heart")
-                    .font(.largeTitle)
-                    .foregroundStyle(textSecondary)
-                    .widgetAccentable()
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("Fond")
-                        .font(.headline)
-                        .foregroundStyle(textPrimary)
-                    Text("Open app to connect with your person")
-                        .font(.caption)
-                        .foregroundStyle(textSecondary)
-                }
+                Text("Fond")
+                    .font(FondWidgetType.name(size: 34))
+                    .foregroundStyle(style.primary)
+                WidgetVoiceRule()
+                Text("Open the app to connect with your person")
+                    .font(.callout)
+                    .foregroundStyle(style.secondary)
                 Spacer(minLength: 0)
             }
-            .padding(.horizontal, 4)
         }
-    }
-
-    private var textPrimary: Color {
-        renderingMode == .fullColor ? FondColors.text : .primary
-    }
-
-    private var textSecondary: Color {
-        renderingMode == .fullColor ? FondColors.textSecondary : .secondary
     }
 }
 
-// MARK: - Widget Entry View (routes per family)
-
 struct FondWidgetEntryView: View {
-    @Environment(\.widgetFamily) var family
-    @Environment(\.widgetRenderingMode) var renderingMode
+    @Environment(\.widgetFamily) private var family
     let entry: FondEntry
 
     var body: some View {
         switch family {
-        case .accessoryInline:
-            FondInlineView(entry: entry)
-        case .accessoryCircular:
-            FondCircularView(entry: entry)
-        case .accessoryRectangular:
-            FondRectangularView(entry: entry)
-        case .systemSmall:
-            FondSmallView(entry: entry)
-        case .systemMedium:
-            FondMediumView(entry: entry)
-        default:
-            FondSmallView(entry: entry)
+        case .accessoryInline: FondInlineView(entry: entry)
+        case .accessoryCircular: FondCircularView(entry: entry)
+        case .accessoryRectangular: FondRectangularView(entry: entry)
+        case .systemSmall: FondSmallView(entry: entry)
+        case .systemMedium: FondMediumView(entry: entry)
+        default: FondSmallView(entry: entry)
         }
     }
 }
-
-// MARK: - Widget Definition
 
 struct FondWidget: Widget {
     let kind = "FondWidget"
 
     var body: some WidgetConfiguration {
-        AppIntentConfiguration(kind: kind, intent: FondWidgetConfigIntent.self, provider: FondTimelineProvider()) { entry in
+        AppIntentConfiguration(
+            kind: kind,
+            intent: FondWidgetConfigIntent.self,
+            provider: FondTimelineProvider()
+        ) { entry in
             FondWidgetEntryView(entry: entry)
                 .widgetURL(URL(string: "fond://open")!)
-                .containerBackground(for: .widget) {
-                    // Full-color: warm Fond background
-                    // Accented/vibrant: system handles it automatically
-                    FondColors.background
-                }
+                .containerBackground(for: .widget) { WidgetKeepsakeBackground() }
         }
         .configurationDisplayName("Your Person")
         .description("See your partner's status and messages at a glance.")
@@ -456,23 +450,44 @@ struct FondWidget: Widget {
     }
 }
 
-// MARK: - Previews
-
-#Preview("Small", as: .systemSmall) {
+#Preview("Presence — Small States", as: .systemSmall) {
     FondWidget()
 } timeline: {
     FondEntry.placeholder
+    FondEntry.stale
+    FondEntry.missingMessage
     FondEntry.notConnected
 }
 
-#Preview("Medium", as: .systemMedium) {
+#Preview("Presence — Medium", as: .systemMedium) {
     FondWidget()
 } timeline: {
     FondEntry.placeholder
+    FondEntry.stale
 }
 
-#Preview("Rectangular", as: .accessoryRectangular) {
+#Preview("Presence — Inline", as: .accessoryInline) {
     FondWidget()
-} timeline: {
-    FondEntry.placeholder
+} timeline: { FondEntry.placeholder }
+
+#Preview("Presence — Circular", as: .accessoryCircular) {
+    FondWidget()
+} timeline: { FondEntry.placeholder }
+
+#Preview("Presence — Rectangular", as: .accessoryRectangular) {
+    FondWidget()
+} timeline: { FondEntry.placeholder }
+
+#Preview("Presence — Accented") {
+    FondSmallView(entry: .placeholder)
+        .environment(\.widgetRenderingMode, .accented)
+        .frame(width: 170, height: 170)
+        .padding()
+}
+
+#Preview("Presence — Vibrant") {
+    FondSmallView(entry: .placeholder)
+        .environment(\.widgetRenderingMode, .vibrant)
+        .frame(width: 170, height: 170)
+        .padding()
 }
