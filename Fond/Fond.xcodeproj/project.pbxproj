@@ -120,38 +120,6 @@
 			);
 			target = CCE06A972F4DB3E600DCD7BE /* Fond */;
 		};
-		CC4DFDD72F4E3F9400C2C8F6 /* Exceptions for "Fond" folder in "FondTests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Shared/Theme/FondColors.swift,
-				Shared/Theme/FondTheme.swift,
-			);
-			target = CCE06AA42F4DB3E800DCD7BE /* FondTests */;
-		};
-		CC4DFDD82F4E3F9400C2C8F6 /* Exceptions for "Fond" folder in "FondUITests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Shared/Theme/FondColors.swift,
-				Shared/Theme/FondTheme.swift,
-			);
-			target = CCE06AAE2F4DB3E800DCD7BE /* FondUITests */;
-		};
-		CC4DFDD92F4E3F9400C2C8F6 /* Exceptions for "Fond" folder in "watchkitapp Watch AppTests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Shared/Theme/FondColors.swift,
-				Shared/Theme/FondTheme.swift,
-			);
-			target = CCE06B0E2F4DBC4100DCD7BE /* watchkitapp Watch AppTests */;
-		};
-		CC4DFDDA2F4E3F9400C2C8F6 /* Exceptions for "Fond" folder in "watchkitapp Watch AppUITests" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				Shared/Theme/FondColors.swift,
-				Shared/Theme/FondTheme.swift,
-			);
-			target = CCE06B182F4DBC4100DCD7BE /* watchkitapp Watch AppUITests */;
-		};
 		CC4DFDE02F4E500000C2C8F6 /* Exceptions for "watchkitapp Watch App" folder in "watchkitapp Watch App" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
@@ -185,6 +153,8 @@
 		CCE06B692F4DC6DE00DCD7BE /* Exceptions for "Fond" folder in "watchkitapp Watch App" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"Resources/Fonts/Fraunces[SOFT,WONK,opsz,wght].ttf",
+				"Resources/Fonts/Newsreader[opsz,wght].ttf",
 				Shared/Constants/FondConstants.swift,
 				Shared/Crypto/EncryptionManager.swift,
 				Shared/Crypto/KeychainManager.swift,
@@ -195,13 +165,17 @@
 				Shared/Models/FondUser.swift,
 				Shared/Models/UserStatus.swift,
 				Shared/Theme/FondColors.swift,
+				Shared/Theme/FondSpacing.swift,
 				Shared/Theme/FondTheme.swift,
+				Shared/Theme/FondTypography.swift,
 			);
 			target = CCE06B022F4DBC3F00DCD7BE /* watchkitapp Watch App */;
 		};
 		CCE06B6A2F4DC6DE00DCD7BE /* Exceptions for "Fond" folder in "widgetsExtension" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
+				"Resources/Fonts/Fraunces[SOFT,WONK,opsz,wght].ttf",
+				"Resources/Fonts/Newsreader[opsz,wght].ttf",
 				Shared/Constants/FondConstants.swift,
 				Shared/Crypto/EncryptionManager.swift,
 				Shared/Crypto/KeychainManager.swift,
@@ -213,6 +187,8 @@
 				Shared/Models/FondUser.swift,
 				Shared/Models/UserStatus.swift,
 				Shared/Theme/FondColors.swift,
+				Shared/Theme/FondSpacing.swift,
+				Shared/Theme/FondTypography.swift,
 			);
 			target = CCE06B312F4DBCB600DCD7BE /* widgetsExtension */;
 		};
@@ -231,11 +207,7 @@
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
 				CC4DFDC32F4E04F400C2C8F6 /* Exceptions for "Fond" folder in "Fond" target */,
-				CC4DFDD72F4E3F9400C2C8F6 /* Exceptions for "Fond" folder in "FondTests" target */,
-				CC4DFDD82F4E3F9400C2C8F6 /* Exceptions for "Fond" folder in "FondUITests" target */,
 				CCE06B692F4DC6DE00DCD7BE /* Exceptions for "Fond" folder in "watchkitapp Watch App" target */,
-				CC4DFDD92F4E3F9400C2C8F6 /* Exceptions for "Fond" folder in "watchkitapp Watch AppTests" target */,
-				CC4DFDDA2F4E3F9400C2C8F6 /* Exceptions for "Fond" folder in "watchkitapp Watch AppUITests" target */,
 				CCE06B6A2F4DC6DE00DCD7BE /* Exceptions for "Fond" folder in "widgetsExtension" target */,
 				CCD39B772F58C990008213AA /* Exceptions for "Fond" folder in "FondNotificationService" target */,
 			);
