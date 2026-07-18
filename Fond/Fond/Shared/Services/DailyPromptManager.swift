@@ -76,6 +76,10 @@ final class DailyPromptManager {
         }
     }
 
+    func promptText(forID id: String) -> String? {
+        allPrompts.first(where: { $0.id == id })?.text
+    }
+
     // MARK: - Deterministic Rotation
 
     /// Selects today's prompt by UTC day index.
