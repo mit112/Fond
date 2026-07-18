@@ -138,6 +138,7 @@ final class AuthManager {
 
         GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: clientID)
 
+        #if canImport(UIKit)
         // Get the root view controller for presenting the Google Sign-In sheet
         guard let windowScene = await MainActor.run(body: {
             UIApplication.shared.connectedScenes.first as? UIWindowScene
@@ -172,6 +173,12 @@ final class AuthManager {
                 errorMessage = error.localizedDescription
             }
         }
+        #else
+        // Native macOS presents Google Sign-In from an NSWindow via GIDSignIn's AppKit
+        // API; that flow is out of scope for this compile repair. Surface a clear message
+        // rather than silently doing nothing.
+        errorMessage = "Google Sign-In isn't available on this platform."
+        #endif
 
         isLoading = false
     }

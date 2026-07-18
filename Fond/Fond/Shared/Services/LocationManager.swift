@@ -63,7 +63,12 @@ final class LocationManager: NSObject, CLLocationManagerDelegate {
 
     private func updateAuthorizationStatus() {
         let status = manager.authorizationStatus
+        #if os(macOS)
+        // macOS has no .authorizedWhenInUse case; .authorizedAlways is the sole granted state.
+        isAuthorized = (status == .authorizedAlways)
+        #else
         isAuthorized = (status == .authorizedWhenInUse || status == .authorizedAlways)
+        #endif
     }
 
     // MARK: - One-Shot Location Capture

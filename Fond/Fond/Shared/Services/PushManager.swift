@@ -15,7 +15,7 @@
 //  Target: Main app only.
 //
 
-#if canImport(FirebaseMessaging)
+#if canImport(FirebaseMessaging) && canImport(UIKit)
 
 import Foundation
 import os
@@ -357,7 +357,7 @@ extension PushManager: @preconcurrency MessagingDelegate {
 
 #else
 
-// Stub for targets without FirebaseMessaging
+// Stub for targets without FirebaseMessaging or UIKit (watchOS, native macOS)
 final class PushManager: Sendable {
     static let shared = PushManager()
     private init() {}

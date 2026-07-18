@@ -107,6 +107,47 @@ If a correct repair would alter locked notification behavior or requires UI work
 12. Commit only the non-UI repair and its tests/docs with one imperative commit message. Inspect the final message and exclude all AI attribution.
 13. Stop. Do not continue into Task 8 UI work or Task 9. Report the resulting commit hash in the final handoff and return control to Sol with a concise remaining-work list.
 
+## Claude non-UI repair — completed 2026-07-18
+
+**Pre-flight verified:** branch `codex/ember-folio-implementation` @ `c7b11c6`; worktree `/Users/mitsheth/.codex/worktrees/Fond/ember-folio-implementation`; Xcode 27.0 (27A5218g). Starting dirty set = exactly the five Sol-owned UI files.
+
+### Root cause
+
+Native macOS has never compiled. `PushManager.swift` gated its full UIKit-dependent body on `#if canImport(FirebaseMessaging)` alone. Firebase Messaging *is* importable on native macOS, so the body compiled there and its unconditional `import UIKit` failed module resolution (`error: Unable to resolve module dependency: 'UIKit'`). A module-resolution error aborts compilation early — which is exactly why earlier inspection saw only `PushManager`: it masked every downstream type error. The macOS `AppDelegate` in `FondApp.swift` already never wires `PushManager` (it only calls `FirebaseApp.configure()`), so macOS needs `PushManager` to compile, not to function.
+
+### Changed files (non-UI service layer only — 3 files, +14/-2)
+
+- `Fond/Fond/Shared/Services/PushManager.swift` — guard changed to `#if canImport(FirebaseMessaging) && canImport(UIKit)`; the existing stub now also covers native macOS. iOS/iPadOS/visionOS/Catalyst unchanged (`canImport(UIKit)` is always true there).
+- `Fond/Fond/Shared/Services/AuthManager.swift` — wrapped the Google Sign-In `UIViewController` presentation path in `#if canImport(UIKit)`; native-macOS `#else` surfaces a clear "unavailable on this platform" message (no silent failure; no invented `NSWindow` GID flow). iOS branch byte-for-byte identical.
+- `Fond/Fond/Shared/Services/LocationManager.swift` — guarded the macOS-unavailable `.authorizedWhenInUse` case; macOS uses `.authorizedAlways`. iOS branch byte-for-byte identical.
+
+No new logic boundary/adapter/value type was introduced, so no new unit test applies — these are compile-time platform selections; the compiler plus the unchanged iOS test suite are the verification. No SwiftUI view, widget, watch, token, entitlement, deployment floor, schema, crypto, payload, or notification-semantics change.
+
+### Verification (exact commands + results)
+
+- `xcodebuild … -destination 'platform=macOS' CODE_SIGNING_ALLOWED=NO build` → **BUILD FAILED, but the three service files compile with zero errors.** Every remaining native-macOS error is in the SwiftUI view layer (Sol's scope):
+  - `Fond/Fond/Views/ConnectedView.swift:489,490` — `UIApplication` / `UIResponder` (`dismissKeyboard`) [protected dirty file]
+  - `Fond/Fond/Views/ConnectedView+DataHandling.swift:62,306` — `WatchSyncManager` not in scope
+  - `Fond/Fond/Views/PairingView.swift:134` — `UIPasteboard`; `:259` — `textInputAutocapitalization`
+  - `Fond/Fond/Views/SettingsView.swift:154` — `navigationBarTitleDisplayMode`; `:156` — `topBarTrailing`
+  - `Fond/Fond/Views/StatusPickerSheet.swift:46` — `navigationBarTitleDisplayMode`
+- `xcodebuild … -destination 'platform=macOS' build` (signed) → **BUILD FAILED at provisioning validation only:** profile "Mac Team Provisioning Profile: com.mitsheth.Fond" lacks the Communication Notifications capability / `com.apple.developer.usernotifications.communication` entitlement. This gate runs before compilation, so this build never reaches the source phase. External signing state — untouched per scope. **The exact signed build does NOT pass.**
+- `xcodebuild … -destination 'platform=iOS Simulator,name=iPhone 17 Pro,OS=27.0' test` → **TEST SUCCEEDED: 15 Swift Testing tests + 6 UI tests, 0 failures.** (Run with `-parallel-testing-enabled NO -test-timeouts-enabled YES`; an initial run wedged in an Xcode-27-beta parallel-`XCTestDevices` launch/debugger-attach hang unrelated to this source change.)
+- `git diff --check` → clean.
+
+### Protected files preserved
+
+All five Sol-owned dirty UI files verified byte-identical to the session-start baseline (SHA-256) and unstaged: `ConnectedView.swift`, `WatchConnectedView.swift`, `FondDateWidget.swift`, `FondDistanceWidget.swift`, `widgets.swift`.
+
+### Remaining blockers for Sol
+
+1. The view-layer native-macOS errors listed above require UI edits (Sol's Task 8 macOS adaptation) — out of Claude's scope.
+2. The local provisioning profile lacks Communication Notifications; the signed `platform=macOS` build cannot link until that profile is updated (Apple Developer portal / external signing — not Claude's to change).
+
+### Architectural note (Mit's call)
+
+The view layer is written for **Mac Catalyst** (`targetEnvironment(macCatalyst)` guards, `UIApplication`, `UIPasteboard`, `navigationBarTitleDisplayMode`, `horizontalSizeClass`), while the target is configured for **native macOS** (`SUPPORTED_PLATFORMS` includes `macosx`; scheme builds `platform=macOS`). Two coherent resolutions: (a) condition the view layer for native AppKit (larger UI effort), or (b) target Mac Catalyst instead (build-setting change; the existing UIKit view code compiles as-is; alters signing/distribution). Claude's service-layer guards are safe under both and do not foreclose either. Not decided here.
+
 ## Sol resume point
 
 After Claude stops, Sol will review the non-UI diff, re-run proportionate verification, finish Task 8's regular-width/keyboard/UI requirements, commit Task 8, implement Task 9 sequentially, perform the full accessibility matrix, capture Now/Together light and dark plus a mid-turn frame, and stop for Mit's visual approval before any merge.
