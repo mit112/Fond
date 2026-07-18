@@ -4,6 +4,8 @@
 > **Planning date:** 2026-07-17 · **Method:** blueprint (dependency-ordered, one-PR-sized steps, per-phase verify gate).
 >
 > **UPDATE 2026-07-18:** The Xcode 27 build/runtime blocker is resolved. Before returning to release phases, implement the approved Two Faces / Ember Folio redesign using `docs/superpowers/plans/2026-07-18-ember-folio-implementation.md`. This is a view/widget/watch presentation pass only; release engineering resumes after its simulator, accessibility, and visual-approval gate.
+>
+> **UPDATE 2026-07-18 (evening):** The Ember Folio redesign is **done** — implemented, verified (23 tests + iPad/watch/widget builds green on Xcode 27), Mit-approved, and integrated to `main` at `0698387` (pushed). **P0 is now green on the app side** (build producible; Liquid Glass + MapKit reverse-geocode verified). The remaining loop-implementable work (**P0-backend + P1 + P2**) is packaged task-by-task in `docs/superpowers/plans/2026-07-18-fond-verification-hardening-plan.md`, with a ready-to-paste kickoff at `docs/superpowers/plans/2026-07-18-fond-verification-hardening-kickoff.md`. P3–P6 remain attended.
 
 ## Legend — who executes
 
@@ -178,4 +180,4 @@ P0 (unblock build) ──┬─→ P1 (tests)      ─┐
 | 6 | **P5** TestFlight | 🧑 attended |
 | 7 | **P6** launch | 🧑 attended cutover |
 
-**First action:** execute `docs/superpowers/plans/2026-07-18-ember-folio-implementation.md` in a fresh implementation session. After Mit approves final simulator captures, resume this roadmap at the first still-open verification/release phase.
+**First action:** the Ember Folio redesign is complete (integrated to `main` @ `0698387`, pushed). Next, execute `docs/superpowers/plans/2026-07-18-fond-verification-hardening-plan.md` (loop-able P0-backend + P1 + P2) via its kickoff prompt `docs/superpowers/plans/2026-07-18-fond-verification-hardening-kickoff.md`. Then resume this roadmap at the first still-open **attended** phase (**P3 — real-device QA**, which begins with `firebase deploy --only functions,firestore:rules`).
