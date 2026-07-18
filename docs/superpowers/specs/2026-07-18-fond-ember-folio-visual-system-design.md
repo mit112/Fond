@@ -2,7 +2,7 @@
 
 > **Date:** 2026-07-18
 >
-> **Status:** Implemented through Tasks 1–9 on 2026-07-18; awaiting Mit's final simulator visual approval before merge
+> **Status:** Implemented and visually approved by Mit on 2026-07-18; ready for integration.
 >
 > **Depends on:** `2026-07-17-fond-redesign-design.md`
 >
