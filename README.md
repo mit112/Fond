@@ -1,6 +1,6 @@
 # Fond — Your Person, At a Glance
 
-A privacy-first couples widget app for iOS 26, iPadOS 26, macOS Tahoe, and watchOS 26. Two people pair via a 6-character code and see each other's status, messages, heartbeat, and location distance — all updated in real time across home screen widgets, lock screen complications, and Apple Watch.
+A privacy-first couples widget app for iOS 26, iPadOS 26, and watchOS 26. Two people pair via a 6-character code and see each other's status, messages, heartbeat, and location distance — all updated in real time across home screen widgets, lock screen complications, and Apple Watch.
 
 **Every piece of user content is end-to-end encrypted.** Firebase only sees ciphertext.
 
@@ -8,13 +8,13 @@ A privacy-first couples widget app for iOS 26, iPadOS 26, macOS Tahoe, and watch
 
 - **Real-time status sharing** — 16 statuses across Availability, Mood, Activity, and Love categories with color-coded emoji
 - **Encrypted messaging** — Short messages delivered in under 2 seconds via push notification pipeline
-- **Widget-first design** — 5 widget families (inline, circular, rectangular, small, medium) across iOS, iPadOS, macOS, and watchOS
+- **Widget-first design** — 5 widget families (inline, circular, rectangular, small, medium) across iOS, iPadOS, and watchOS (a Mac can display the iPhone's widget via Continuity; there's no native Mac app)
 - **End-to-end encryption** — X25519 key exchange + AES-256-GCM; symmetric keys synced via iCloud Keychain
 - **Notification Service Extension** — Decrypts push payloads in <1ms without waking the main app
 - **Heartbeat sharing** — Live BPM from Apple Watch via HealthKit integration
 - **Location distance** — Privacy-rounded coordinates (~1km precision), encrypted before upload
 - **Daily prompts** — Rotating relationship prompts both partners can answer
-- **Liquid Glass UI** — iOS 26 design language with animated mesh gradient backgrounds, glass-tier hierarchy, and spring animations
+- **Ember Folio design** — an editorial, keepsake-card aesthetic: opaque amber-bordered cards (Fraunces + Newsreader serif type) with a signature 3D "CardTurn" flip between the Now/Together faces; Liquid Glass is reserved for the floating toolbar and send control, and the animated mesh gradient survives only on pre-connection onboarding screens
 - **watchOS companion** — Full bidirectional support: view partner status, send nudges and heartbeats
 
 ## Architecture
@@ -41,12 +41,13 @@ A privacy-first couples widget app for iOS 26, iPadOS 26, macOS Tahoe, and watch
 ┌─────────────────────────────────────────────────────────────┐
 │                   Firebase (fond-cf7f5)                      │
 │                                                             │
-│  Cloud Functions (TypeScript, v2 API):                      │
+│  Cloud Functions (TypeScript, v2 API) — 4 deployed:          │
 │    ├── linkUsers        — Atomic pairing via batch write    │
 │    ├── notifyPartner    — FCM fan-out + APNs widget push    │
 │    ├── unlinkConnection — Atomic disconnect + push notify   │
-│    ├── expireCodes      — Scheduled cleanup (10min TTL)     │
-│    └── apnsHelper       — Direct APNs for WidgetKit tokens  │
+│    └── expireCodes      — Scheduled cleanup (10min TTL)     │
+│  (apnsHelper.ts is a helper module imported by notifyPartner │
+│   for direct APNs calls — not a deployed function itself)   │
 │                                                             │
 │  Firestore: users/, connections/, codes/                    │
 │  All user content fields = AES-256-GCM ciphertext (Base64)  │
@@ -76,7 +77,7 @@ The system is optimized for speed — partner updates should arrive in 1-2 secon
 ```
 Fond/
 ├── Fond/                           # Xcode project root
-│   ├── Fond/                       # iOS/iPadOS/macOS main target
+│   ├── Fond/                       # iOS/iPadOS main target
 │   │   ├── FondApp.swift           # App entry point + AppDelegate
 │   │   ├── ContentView.swift       # Root router (auth → name → pair → connected)
 │   │   ├── Views/
@@ -131,7 +132,7 @@ Fond/
 │       ├── notifyPartner.ts        # FCM fan-out + APNs widget push
 │       ├── unlinkConnection.ts     # Atomic disconnect
 │       ├── expireCodes.ts          # Scheduled code cleanup
-│       └── apnsHelper.ts           # Direct APNs for widget tokens
+│       └── apnsHelper.ts           # Direct-APNs helper, imported by notifyPartner.ts (not a deployed function)
 ├── firestore.rules                 # Security rules (partner-read, owner-write)
 ├── docs/                           # Architecture docs + decision log
 └── firebase.json
@@ -144,20 +145,22 @@ Fond/
 | **Encryption** | CryptoKit X25519 key exchange → AES-256-GCM. Per-message unique nonce. Keys synced via iCloud Keychain (`kSecAttrSynchronizable`). |
 | **Push pipeline** | Dual-path: NSE decrypts from payload (<1ms, no network) + main app Firestore fallback. Cloud Function includes encrypted fields in FCM data payload. |
 | **Widget updates** | NSE writes to App Group → `WidgetCenter.reloadAllTimelines()`. Direct APNs widget push via Cloud Function with 500ms delay to avoid race condition. |
-| **Cross-platform** | `#if canImport()` guards throughout. watchOS uses static gradient (no MeshGradient). Widget uses `widgetRenderingMode` for fullColor/accented/vibrant. |
+| **Cross-platform** | `#if canImport()` guards throughout. Animated MeshGradient limited to pre-connection onboarding (static LinearGradient on watchOS); the connected view uses a flat field on every platform. Widget uses `widgetRenderingMode` for fullColor/accented/vibrant. |
 | **Rate limiting** | 5-second cooldown with circular progress ring on send button. Server-side validation in Cloud Functions. |
 | **Firestore rules** | Partner-read via `partnerUid` verification. Owner-write only. History is append-only and immutable. Catch-all deny. |
 | **Concurrency** | Swift `async/await` throughout. `@Observable` macro for reactive state. `Sendable` conformance on managers. |
-| **Design system** | 3-tier glass hierarchy (`fondGlassInteractive`, `fondGlass`, `fondGlassPlain`), animated 3×3 `MeshGradient`, centralized haptic feedback, spring animation presets. |
+| **Design system** | Opaque `fondKeepsakeCard` content faces (amber `strokeBorder`, no glass/gradient); Liquid Glass limited to the floating toolbar/send controls; signature 3D `CardTurn` flip; centralized haptic feedback; spring animation presets. |
 
 ## Design System
 
-The visual language is **"warm glass, not candy"** — avoiding generic pink aesthetics in favor of an amber/lavender palette that feels inviting for all users.
+The visual language is **Ember Folio** — an editorial, keepsake-card aesthetic. Content lives on opaque cards, not glass; Liquid Glass is reserved for a small set of floating controls.
 
-- **Palette**: Warm amber primary (`#E8A838`), soft lavender secondary (`#B8A0D2`), muted rose for reactions
-- **Backgrounds**: Animated `MeshGradient` (3×3 grid, 6s breathing cycle) with color-shifting center point
-- **Glass tiers**: Interactive glass for buttons (press feedback), tinted glass for primary surfaces, plain glass for secondary elements
-- **Typography**: System fonts with `.rounded` design for brand moments, monospaced for codes
+- **Palette**: Amber is the sole brand accent (adaptive light/dark), used for card borders, tinted glass controls, and the system accent color; the old lavender/rose secondary palette is gone — those hues survive only as small status-dot colors
+- **Cards**: `fondKeepsakeCard()` — an opaque fill + amber `strokeBorder` + inset hairline + shadow — used for both the "Now" and "Together" card faces; no blur or gradient on content
+- **Signature gesture**: `CardTurn` — a spring-interruptible 3D Y-axis flip between the Now/Together card faces, with a Reduce Motion cross-fade fallback
+- **Glass**: Liquid Glass (`.glassEffect()`) survives only on floating controls — the toolbar (`fondFloatingControl`) and send button (`fondSendControl`) — each with an opaque Reduce-Transparency fallback
+- **Backgrounds**: Animated `MeshGradient` (3×3 grid, 6s breathing cycle; static `LinearGradient` on watchOS) is limited to pre-connection onboarding/loading screens; the connected experience uses a flat field
+- **Typography**: Fraunces (variable, serif) for editorial display type — partner name, daily question; Newsreader (variable, serif) for shared human-authored words — pull quotes, partner's voice; system SF Pro for controls and facts
 - **Haptics**: Centralized `FondHaptics` enum with pre-allocated `UIImpactFeedbackGenerator` instances for zero-latency feedback
 - **Animations**: `.fondSpring` (0.5s, 0.8 damping) for state transitions, `.fondQuick` (0.3s) for micro-interactions
 - **Adaptive**: `FondColors.adaptive()` factory creates dynamic `UIColor`/`NSColor` with light/dark variants; watchOS always uses dark
@@ -178,7 +181,7 @@ users/{uid}
   └── devices/{deviceId}
         ├── fcmToken: string
         ├── widgetPushToken: string
-        └── platform: "ios" | "ipados" | "macos" | "watchos"
+        └── platform: "ios" | "ipados" | "watchos"
 
 connections/{id}
   ├── user1, user2: string (UIDs)
@@ -193,7 +196,7 @@ codes/{code}
 
 ## Tech Stack
 
-- **Swift 6** / SwiftUI — iOS 26, iPadOS 26, macOS Tahoe, watchOS 26
+- **Swift 6** / SwiftUI — iOS 26, iPadOS 26, watchOS 26
 - **Firebase** — Firestore, Cloud Functions (TypeScript v2), FCM, Auth
 - **CryptoKit** — X25519, AES-256-GCM
 - **WidgetKit** — 5 widget families with push-driven updates
