@@ -56,23 +56,6 @@ final class FirebaseManager: Sendable {
         return code
     }
 
-    /// Looks up a code. Returns the creator's UID if valid and unclaimed, nil otherwise.
-    func lookupPairingCode(_ code: String) async throws -> String? {
-        let normalized = code.uppercased().trimmingCharacters(in: .whitespacesAndNewlines)
-        let doc = try await db.collection(FondConstants.codesCollection)
-            .document(normalized)
-            .getDocument()
-
-        guard let data = doc.data(),
-              let creatorUid = data["creatorUid"] as? String,
-              let claimed = data["claimed"] as? Bool,
-              let expiresAt = data["expiresAt"] as? Timestamp else {
-            return nil
-        }
-        if claimed || expiresAt.dateValue() < Date() { return nil }
-        return creatorUid
-    }
-
     // MARK: - Link / Unlink
 
     /// Claims the code and links two users via Cloud Function (atomic batch write).
