@@ -156,7 +156,7 @@ After Claude stops, Sol will review the non-UI diff, re-run proportionate verifi
 
 Mit's product decision: Fond is an iPhone + Apple Watch app; the Mac only needs the **widget**, which macOS 14+ provides automatically via **iPhone-widgets-on-Mac (Continuity)** — no Mac app required, and the Mac never touches keys/plaintext (it displays the iPhone-rendered widget). Accordingly:
 
-- `Fond/Fond.xcodeproj/project.pbxproj`: removed `macosx` from `SUPPORTED_PLATFORMS` on the Fond app, widgets, NSE, and test targets. Inert `LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]` conditionals were left as harmless no-ops; visionOS (`xros`) was left untouched.
+- `Fond/Fond.xcodeproj/project.pbxproj`: removed `macosx` from `SUPPORTED_PLATFORMS` on the Fond app, widgets, NSE, and test targets. Inert `LD_RUNPATH_SEARCH_PATHS[sdk=macosx*]` conditionals were left as harmless no-ops. **visionOS was also dropped** in a follow-up: `xros`/`xrsimulator` removed from the same targets (inert `XROS_DEPLOYMENT_TARGET = 26.0` left as a no-op). Fond now targets **iPhone + iPad + Apple Watch only**.
 - **Supersedes the macOS items above:** the five view-layer native-macOS errors and the `platform=macOS` build requirement no longer apply. Task 8 reduces to iPad + keyboard + watch.
 - The Mac provisioning limitation (Communication Notifications) is moot — there is no Mac app to sign.
 - Commit `58b7807`'s service-layer guards are retained: harmless on iOS (`canImport(UIKit)` is always true there) and ready if a Catalyst Mac app is ever added.
