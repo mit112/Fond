@@ -32,7 +32,7 @@ Four functions are deployed (Firebase Functions v2, `us-central1`, exported from
 
 Added during the verification-hardening pass:
 
-- `Fond/FondTests/` — crypto primitives, `EncryptionManager`, `KeychainManager`, `KeyExchangeManager`, status/daily-prompt determinism, relationship-date summary, card-turn math, Ember Folio palette contrast, Together-moment building.
+- `Fond/FondTests/` — crypto primitives (AES-GCM, X25519/HKDF), `EncryptionManager`, `KeychainManager`, `KeyExchangeManager`, status degradation + daily-prompt determinism + `FondMessage` codec, countdown cross-device sync, relationship-date summary, card-turn math, Ember Folio palette contrast, Together-moment building. 37 Swift Testing tests across 12 suites + 8 XCTest UI tests, 0 failures.
 - `functions/src/__tests__/` — Firebase emulator tests for `linkUsers`, `notifyPartner`, `unlinkConnection`, `expireCodes`, plus Firestore security-rules tests (`rules.test.ts`) covering owner/partner access and append-only history.
 
 See `CLAUDE.md`/`AGENTS.md` for build and test commands.
@@ -60,4 +60,4 @@ callNotifyPartner() ─────────────────→ Cloud
 
 ## What's Next
 
-See `docs/01-next-steps-open-questions.md` and the verification-hardening plan (`.superpowers/sdd/`) for open items — notably countdown cross-device sync (decision-gated) — followed by attended real-device QA (widget pipeline, unlink flow, key sync) ahead of App Store submission.
+Countdown cross-device sync is resolved (self-doc listener — see `STATE_OF_PROJECT.md` §3). See `docs/01-next-steps-open-questions.md` and the verification-hardening plan (`.superpowers/sdd/`) for remaining open items, followed by attended real-device QA (widget pipeline, unlink flow, key sync) ahead of App Store submission.
