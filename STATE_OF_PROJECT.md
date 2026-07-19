@@ -84,7 +84,7 @@ Effectively **zero real tests.** Six test functions exist across the iOS + watch
 
 ### Latent correctness risks the recon surfaced [VERIFIED — findings; INFERRED — impact]
 - **APNs environment mismatch:** app + widget entitlements set `aps-environment = development` (`Fond.entitlements:17`, `widgetsExtension.entitlements:13`) while the Cloud Functions default `APNS_SANDBOX = false` (production host). Dev builds would get sandbox tokens but the direct-APNs widget push targets the production host → widget pushes fail in dev; must be made consistent before TestFlight (which needs production/production).
-- **Countdown never syncs across devices:** `anniversaryDate` syncs both ways, but `countdownDate`/`countdownLabel` are written to App Group only locally and stored encrypted in the user's own doc with no self-doc listener to read them back on a second device.
+- **Countdown never syncs across devices — RESOLVED (Option A, self-doc listener):** `anniversaryDate` syncs via the connection doc; the user-doc `countdownDate`/`countdownLabel` fields are now read back on every device by `FirebaseManager.listenToOwnUserDoc` → `writeOwnCountdownToAppGroup` (decrypts the label, writes both to the App Group). Schema/encrypted-field names unchanged; new read path only.
 - **Crypto migration footnote:** `KeyExchangeManager.swift:51-52` documents that HKDF `sharedInfo` was changed to `"Fond-E2E-v1"` pre-launch — harmless for a clean launch, load-bearing if any pre-change keys ever went live (they didn't).
 
 ---

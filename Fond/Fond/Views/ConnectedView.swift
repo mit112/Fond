@@ -29,6 +29,7 @@ struct ConnectedView: View {
     @State var partnerUid: String?
     @State var listener: ListenerRegistration?
     @State var connectionListener: ListenerRegistration?
+    @State var ownUserListener: ListenerRegistration?
 
     @State private var showSettings = false
     @State private var showStatusPicker = false
@@ -169,6 +170,7 @@ struct ConnectedView: View {
         .onDisappear {
             listener?.remove()
             connectionListener?.remove()
+            ownUserListener?.remove()
             cooldownTimer?.invalidate()
             cooldownTimer = nil
         }

@@ -211,6 +211,25 @@ final class FirebaseManager: Sendable {
             }
     }
 
+    /// Listens for changes to the user's OWN document so a countdown edit made on
+    /// another device (`countdownDate` plaintext Timestamp + `countdownLabel`
+    /// encrypted, both stored on the user doc) reaches this device. The label stays
+    /// encrypted; the caller decrypts it via `writeOwnCountdownToAppGroup`.
+    func listenToOwnUserDoc(
+        uid: String,
+        onChange: @escaping (_ countdownDate: Date?, _ encryptedLabel: String?) -> Void
+    ) -> ListenerRegistration {
+        db.collection(FondConstants.usersCollection)
+            .document(uid)
+            .addSnapshotListener { snapshot, error in
+                guard let data = snapshot?.data(), error == nil else { return }
+                onChange(
+                    (data["countdownDate"] as? Timestamp)?.dateValue(),
+                    data["countdownLabel"] as? String
+                )
+            }
+    }
+
     // MARK: - Location
 
     /// Updates the user's encrypted location in Firestore.
@@ -432,6 +451,27 @@ final class FirebaseManager: Sendable {
         }
         if let city = partnerCity {
             defaults.set(city, forKey: FondConstants.partnerCityKey)
+        }
+        WidgetCenter.shared.reloadAllTimelines()
+        await FondRelevanceUpdater.update()
+    }
+
+    /// Writes the user's own decrypted countdown to App Group UserDefaults for
+    /// widgets. Companion to `listenToOwnUserDoc`: a second device that never set
+    /// the countdown locally still surfaces it. Decrypts the label in place and
+    /// clears each key when its value is absent.
+    func writeOwnCountdownToAppGroup(countdownDate: Date?, encryptedLabel: String?) async {
+        guard let defaults = UserDefaults(suiteName: FondConstants.appGroupID) else { return }
+        if let countdownDate {
+            defaults.set(countdownDate, forKey: FondConstants.countdownDateKey)
+        } else {
+            defaults.removeObject(forKey: FondConstants.countdownDateKey)
+        }
+        let label = EncryptionManager.shared.decryptOrNil(encryptedLabel)
+        if let label, !label.isEmpty {
+            defaults.set(label, forKey: FondConstants.countdownLabelKey)
+        } else {
+            defaults.removeObject(forKey: FondConstants.countdownLabelKey)
         }
         WidgetCenter.shared.reloadAllTimelines()
         await FondRelevanceUpdater.update()
