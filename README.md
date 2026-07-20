@@ -237,7 +237,7 @@ codes/{code}
 
 ## License
 
-This project is proprietary. All rights reserved.
+MIT — see [LICENSE](LICENSE).
 
 ---
 
