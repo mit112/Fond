@@ -1,108 +1,45 @@
 # Fond — Current Status
 
-> Updated: March 5, 2026 — iOS 26 Liquid Glass UI polish pass
+> Updated: July 18, 2026 — Ember Folio visual system shipped; verification-hardening test pass underway
+>
+> This replaces a March 5, 2026 phase-log snapshot that described a pre-redesign, pre-test-suite state of the app (Liquid Glass content cards, no `FondTests`/`functions/src/__tests__`, wider platform scope). See `docs/superpowers/` for the redesign and hardening plans that superseded it.
 
 ---
 
-## Build Status: ✅ All Targets Pass
+## Where Things Stand
 
-| Target | Status |
-|---|---|
-| **Fond** (iOS/iPadOS/macOS) | ✅ BUILD SUCCEEDED |
-| **FondNotificationService** (NSE) | ✅ Target created, needs real-device test |
-| **watchkitapp Watch App** (watchOS) | ✅ BUILD SUCCEEDED |
-| **widgetsExtension** (widget) | ✅ BUILD SUCCEEDED |
-| **Cloud Functions** (TypeScript) | ✅ Deployed March 4, 2026 |
+Fond is feature-complete for its v1 scope — pairing, encrypted status/messaging, nudges, heartbeat, location distance, and daily prompts — and has been through a full visual redesign. Platform scope is **iPhone, iPad, and Apple Watch only** (`SUPPORTED_PLATFORMS = iphoneos iphonesimulator` on every app target in `Fond.xcodeproj`): the native macOS (Catalyst) and visionOS targets described in `00-architecture-decisions.md` and `02-design-direction.md` were dropped. The iPhone widget still reaches the Mac via widget continuity; there is no dedicated Mac app target.
 
----
+## Design System: Ember Folio
 
-## Phases Complete
+The "warm glass" system described in earlier docs (`02-design-direction.md`, `05-design-review-2026-07-17.md`) has been superseded by **Ember Folio** (`docs/superpowers/specs/2026-07-18-fond-ember-folio-visual-system-design.md`, implemented and visually approved 2026-07-18 — see `docs/superpowers/plans/`). Current state, verified against `Shared/Theme/`:
 
-| Phase | Status | What |
-|---|---|---|
-| 0: Setup | ✅ | Firebase init, folder structure, security rules, Cloud Functions |
-| 1: Auth + Pairing | ✅ | Apple Sign-In, Google Sign-In (code ready), display name, code gen/enter, linking |
-| 2: Encryption | ✅ | X25519 key exchange, AES-256-GCM encrypt/decrypt, Keychain with iCloud sync |
-| 3: Status + Messaging | ✅ | Encrypt → write → real-time listener → decrypt, history feed |
-| 4: Push Pipeline | ✅ | FCM token registration, notifyPartner Cloud Function call, App Group bridge |
-| 5: Widgets | ✅ | 5 widget families (inline, circular, rectangular, small, medium), reads App Group |
-| 6: Unlink | ✅ | Cloud Function call, key deletion, widget cleanup |
-| 7: Polish | ✅ | Rate limiting, WidgetKit reloads, error handling, display name editing |
-| 8: Widget Pipeline Fix | 🟡 | NSE target + payload decryption. Cloud Functions deployed. Needs real-device test. |
-| 9: iOS 26 Glass Polish | ✅ | Interactive glass on all buttons, clear glass cards, widget StandBy optimization, watchOS glass buttons |
+- Opaque `fondKeepsakeCard()` for the Now/Together card faces (`Shared/Theme/FondTheme.swift`) — no glass, blur, or gradient on content; `.fondCard()`/`GlassEffect.clear` no longer exist.
+- `CardTurnContainer`/`FondFace` (`Shared/Theme/CardTurn.swift`) — the signature 3D flip gesture between the Now and Together card faces.
+- Fraunces (partner name, questions) and Newsreader (shared words) editorial serif type; SF Pro for controls/metadata (`Shared/Theme/FondTypography.swift`).
+- Amber is the single brand accent. Liquid Glass (`.glassEffect()`) survives only on the floating toolbar, compose bar, and send button (`fondFloatingControl`, `fondSendControl`) — never on content.
+- The animated `MeshGradient` field survives only on the pre-connection onboarding/loading background (`FondOnboardingBackground`); the connected experience uses a flat `FondField`.
 
----
+## Cloud Functions
 
-## Files Created (25 total)
+Four functions are deployed (Firebase Functions v2, `us-central1`, exported from `functions/src/index.ts`): `linkUsers`, `notifyPartner`, `unlinkConnection`, `expireCodes`. `functions/src/apnsHelper.ts` is a helper module (JWT signing + direct HTTP/2 calls to APNs) imported by `notifyPartner` — it is not its own deployed function.
 
-### Swift (21 files)
-```
-FondApp.swift                           — App entry, multiplatform AppDelegate, Firebase init
-ContentView.swift                       — Root router: SignIn → Name → Pair → Connected
+## Statuses
 
-Shared/Constants/FondConstants.swift    — All app-wide constants
-Shared/Models/UserStatus.swift          — available/busy/away/sleeping enum
-Shared/Models/ConnectionState.swift     — signedOut/unpaired/connected/etc
-Shared/Models/FondUser.swift            — Firestore users/{uid} schema
-Shared/Models/FondMessage.swift         — Firestore history/{entryId} schema
-Shared/Models/DeviceRegistration.swift  — Firestore devices/{deviceId} schema
-Shared/Crypto/EncryptionManager.swift   — AES-256-GCM encrypt/decrypt
-Shared/Crypto/KeychainManager.swift     — Keychain CRUD with iCloud sync
-Shared/Crypto/KeyExchangeManager.swift  — X25519 DH + HKDF key derivation
-Shared/Services/AuthManager.swift       — Firebase Auth (Apple + Google Sign-In)
-Shared/Services/FirebaseManager.swift   — All Firestore operations + Cloud Function calls
-Shared/Services/PushManager.swift       — FCM token + device registration
-Shared/Extensions/Date+Extensions.swift — shortTimeAgo, historyTimestamp
+`UserStatus` (`Shared/Models/UserStatus.swift`) has 16 cases across 4 categories: Availability (4 — available, busy, away, sleeping), Mood (5 — happy, stressed, sad, excited, calm), Activity (4 — working, driving, eating, exercising), Love (3 — thinking of you, miss you, loving you).
 
-Views/SignInView.swift                  — Apple + Google sign-in buttons
-Views/DisplayNameView.swift             — Name entry after sign-in
-Views/PairingView.swift                 — Generate code / Enter code (two tabs)
-Views/ConnectedView.swift               — Partner status, status picker, messaging
-Views/HistoryView.swift                 — Decrypted history feed
-Views/SettingsView.swift                — Name edit, disconnect, sign out
-```
+## Test Coverage
 
-### Widget Extension (3 files)
-```
-widgets/widgets.swift                   — FondWidget + 5 family views + timeline provider
-widgets/widgetsBundle.swift             — Widget bundle entry point
-widgets/FondWidgetPushHandler.swift     — WidgetKit push token capture
-```
+Added during the verification-hardening pass:
 
-### Notification Service Extension (3 files) — NEW
-```
-FondNotificationService/NotificationService.swift          — Intercepts push, decrypts payload, writes App Group, reloads widgets
-FondNotificationService/FondNotificationService.entitlements — App Group + Keychain sharing
-FondNotificationService/Info.plist                         — NSE extension point config
-```
+- `Fond/FondTests/` — crypto primitives (AES-GCM, X25519/HKDF), `EncryptionManager`, `KeychainManager`, `KeyExchangeManager`, status degradation + daily-prompt determinism + `FondMessage` codec, countdown cross-device sync, relationship-date summary, card-turn math, Ember Folio palette contrast, Together-moment building. 37 Swift Testing tests across 12 suites + 8 XCTest UI tests, 0 failures.
+- `functions/src/__tests__/` — Firebase emulator tests for `linkUsers`, `notifyPartner`, `unlinkConnection`, `expireCodes`, plus Firestore security-rules tests (`rules.test.ts`) covering owner/partner access and append-only history.
 
-### Cloud Functions (5 files)
-```
-functions/src/index.ts                  — Entry point, exports all functions
-functions/src/notifyPartner.ts          — Push fan-out + encrypted payload forwarding
-functions/src/expireCodes.ts            — Scheduled cleanup of expired codes
-functions/src/unlinkConnection.ts       — Atomic disconnect + push
-functions/src/apnsHelper.ts             — Direct APNs widget push (HTTP/2 + JWT)
-functions/src/linkUsers.ts              — Atomic code claim + user linking
-```
+See `CLAUDE.md`/`AGENTS.md` for build and test commands.
 
-### Firestore
-```
-firestore.rules                         — Production security rules
-```
+## Local Persistence
 
----
-
-## What's Next
-
-1. **Real-device test of widget pipeline** — NSE only runs on physical hardware, not Simulator. Test: partner sends status → widget updates within 1-2s with app backgrounded/force-quit.
-2. **Test unlink flow** — NSE now handles unlink push (clears App Group). Verify widget shows "Not Connected" when partner unlinks.
-3. **Test key sync** — Verify iCloud Keychain sync works on a second real device. KeySyncView should resolve within seconds.
-4. **Device test glass effects** — Verify `fondGlassInteractive` press feedback (scale + shimmer) looks correct on real hardware. Simulator approximates but doesn't show full glass refraction.
-5. **Widget tutorial in onboarding** — Guide users to add widgets after pairing.
-6. **Build and test on device** — Full end-to-end run on physical iPhone + Apple Watch.
-
----
+There is no SwiftData store in the codebase (`rg 'SwiftData|@Model'` over `Fond/` returns nothing). Local/cross-target state moves through the App Group (`group.com.mitsheth.Fond`) UserDefaults bus, written by the app/NSE and read by widgets — see `00-architecture-decisions.md` §5 ("Widget Decryption") and this repo's `CLAUDE.md` "Data Sharing via App Group" section. Earlier planning docs mention a SwiftData cache; that was never implemented.
 
 ## Architecture Implemented
 
@@ -120,3 +57,7 @@ callNotifyPartner() ─────────────────→ Cloud
                                                               ← Decrypt(status)
                                                               ← Widget reads App Group
 ```
+
+## What's Next
+
+Countdown cross-device sync is resolved (self-doc listener — see `STATE_OF_PROJECT.md` §3). See `docs/01-next-steps-open-questions.md` and the verification-hardening plan (`.superpowers/sdd/`) for remaining open items, followed by attended real-device QA (widget pipeline, unlink flow, key sync) ahead of App Store submission.

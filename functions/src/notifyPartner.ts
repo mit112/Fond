@@ -235,7 +235,7 @@ export const notifyPartner = onCall(
                   })
                   .then(() => {
                     logger.info(
-                      `Cleaned up stale FCM token for partner ` +
+                      "Cleaned up stale FCM token for partner " +
                       `${partnerUid}: ${staleToken.substring(0, 8)}…`
                     );
                   })
