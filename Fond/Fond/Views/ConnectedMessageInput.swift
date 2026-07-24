@@ -84,6 +84,7 @@ struct ConnectedMessageInput: View {
             }
             .foregroundStyle(sendForeground)
             .frame(width: 52, height: 52)
+            .contentShape(Rectangle())
             .contentTransition(.symbolEffect(.replace))
         }
         .buttonStyle(.plain)

@@ -177,38 +177,31 @@ struct ConnectedView: View {
     }
 
     private var toolbar: some View {
-        HStack(spacing: FondSpacing.two) {
-            Button {
-                showSettings = true
-            } label: {
-                Image(systemName: "gearshape")
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(FondColors.ink)
-                    .frame(width: FondGeometry.minimumTarget, height: FondGeometry.minimumTarget)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Open settings")
+        // Nav-bar composition: a leading utility (Settings) with the face picker
+        // optically centered in the full width. The picker and the card swipe
+        // already cover face-switching, so no trailing control is needed.
+        ZStack {
+            HStack {
+                Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(FondColors.ink)
+                        .frame(width: FondGeometry.minimumTarget, height: FondGeometry.minimumTarget)
+                        .contentShape(Rectangle())
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("Open settings")
 
-            Spacer(minLength: FondSpacing.one)
+                Spacer()
+            }
 
             facePicker
-
-            Spacer(minLength: FondSpacing.one)
-
-            Button {
-                activeFace = .together
-            } label: {
-                Image(systemName: "text.justify.leading")
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(FondColors.ink)
-                    .frame(width: FondGeometry.minimumTarget, height: FondGeometry.minimumTarget)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Show Together thread")
         }
         .frame(height: FondGeometry.controlHeight)
         .padding(.horizontal, FondSpacing.one)
-        .fondFloatingControl(in: Capsule())
+        .fondFloatingControl(in: Capsule(), interactive: false)
         .frame(maxWidth: contentMaxWidth)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("fond.toolbar")

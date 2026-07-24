@@ -96,6 +96,11 @@ private struct FondKeepsakeModifier: ViewModifier {
 private struct FondFloatingControlModifier<ControlShape: Shape>: ViewModifier {
     let shape: ControlShape
     let tinted: Bool
+    // An interactive glass effect installs its own touch handling at the glass
+    // layer that shadows normal SwiftUI hit-testing. Apply it only to a single
+    // leaf control; on a container of multiple buttons it steals the children's
+    // taps (see the toolbar / pairing picker, which pass `interactive: false`).
+    let interactive: Bool
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
     @ViewBuilder
@@ -106,9 +111,14 @@ private struct FondFloatingControlModifier<ControlShape: Shape>: ViewModifier {
                 .overlay(shape.stroke(FondColors.rule, lineWidth: 1))
                 .shadow(color: FondColors.shadow.opacity(0.16), radius: 16, y: 6)
         } else if tinted {
-            content.glassEffect(.regular.tint(FondColors.amber).interactive(), in: shape)
+            content.glassEffect(
+                interactive
+                    ? .regular.tint(FondColors.amber).interactive()
+                    : .regular.tint(FondColors.amber),
+                in: shape
+            )
         } else {
-            content.glassEffect(.regular.interactive(), in: shape)
+            content.glassEffect(interactive ? .regular.interactive() : .regular, in: shape)
         }
     }
 }
@@ -155,9 +165,10 @@ extension View {
 
     func fondFloatingControl(
         in shape: some Shape = Capsule(),
-        tinted: Bool = false
+        tinted: Bool = false,
+        interactive: Bool = true
     ) -> some View {
-        modifier(FondFloatingControlModifier(shape: shape, tinted: tinted))
+        modifier(FondFloatingControlModifier(shape: shape, tinted: tinted, interactive: interactive))
     }
 
     func fondControlPlate(in shape: some Shape = Capsule()) -> some View {
