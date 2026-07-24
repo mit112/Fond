@@ -28,6 +28,20 @@ Then target the gate by `-destination 'platform=iOS Simulator,id=65FAAD62-…'` 
 
 ---
 
+## Session 2026-07-23 — QA-support: device bug found + fixed (branch HEAD now `6cf11af`)
+
+Started §B on Mit's iPhone. First real-device finding was a **UI hit-testing bug**, now fixed:
+
+- **Bug:** ConnectedView toolbar top-left (gear/Settings) + top-right (list) icon buttons — and the send button — were **dead to a finger**. Cause: an SF Symbol glyph in a 44/52pt frame with **no `.contentShape`** → only the glyph is hit-testable; a finger misses it. **Device-only:** every synthesized tap (XCUITest `.tap()` AND faithful AXe HID `tap`) lands dead-center on the glyph, so it never reproduces in the Simulator. The first hypothesis (iOS 26 interactive-glass-on-container stealing taps) was WRONG — the middle text picker worked inside the same glass; the `interactive:false` change was kept only as an Apple-aligned safeguard.
+- **Fix — committed `6cf11af`** (6 files; scheme excluded; no AI attribution): `.contentShape(Rectangle())` on the icon buttons + send button; **removed the redundant one-way trailing "Together" icon** and recomposed the toolbar as leading-Settings + optically-centered picker (nav-bar pattern) in app + gallery; container glass kept passive. Verified: compiles clean, **3 UI tests pass**, sim screenshot good. **Toolbar fix device-confirmed by Mit**; the new layout + send button still want a quick device eyeball.
+- **Tooling:** enabled XcodeBuildMCP's `ui-automation` workflow (AXe HID taps) — `claude mcp` env `XCODEBUILDMCP_ENABLED_WORKFLOWS=project-discovery,simulator,simulator-management,session-management,ui-automation,debugging`. Durable for future sessions.
+- **`main` advanced `97371cf` → `b6124a4`** ("Add MIT license" — benign, non-conflicting; adds `LICENSE` + 1 README line). PR #1 still **MERGEABLE/CLEAN**, but a local `--ff-only` into main is **no longer possible** (divergence) → merge via GitHub, or merge `main`→branch first then gate.
+- **Branch state:** HEAD `6cf11af`; local commits (`5fd3d61` docs + `6cf11af` fix) are **ahead of `origin`/unpushed**. Xcode keeps rewriting `watchkitapp Watch App.xcscheme` in the worktree working tree — not committed; `git checkout` it before any merge (§A2 forbids scheme changes).
+
+**Still pending:** full P3 device matrix, §C ratification, §D merge. Kickoff prompt below is refreshed for that session.
+
+---
+
 ## A. Review checklist (before merge)
 
 1. **Re-run both gates fresh** from the worktree and confirm green:
