@@ -2,13 +2,15 @@
 
 > App Name: **Fond** | Subtitle: "Your Person, At a Glance"
 > Initial idea thought process — capturing every decision and the reasoning behind it.
-> Date: February 2026 | Target: iOS 26, iPadOS 26, macOS Tahoe, watchOS 26
+> Date: February 2026 | Target: iOS 26, iPadOS 26, watchOS 26
+
+> **SUPERSEDED (2026-07-18):** Platform scope was narrowed to **iPhone + iPad + Apple Watch only** — the native macOS (Catalyst) and visionOS targets described below were dropped; the Mac receives the iPhone widget via Continuity, with no dedicated Mac app target. The macOS/visionOS platform content in this document reflects the original February 2026 scope and is retained below as a historical decision record — see `docs/03-current-status.md` for current platform scope.
 
 ---
 
 ## 1. The Concept
 
-**Fond** is a couples widget app. Two people pair up and can see each other's status and short messages directly on their lock screen, home screen, watch face, and Mac desktop — across every Apple device they own.
+**Fond** is a couples widget app. Two people pair up and can see each other's status and short messages directly on their lock screen, home screen, and watch face — across every Apple device they own.
 
 No need to open the app. It's ambient awareness of your person.
 
@@ -166,7 +168,7 @@ users/{uid}/
   createdAt: Timestamp
 
   devices/{deviceId}/                // subcollection — one doc per physical device
-    platform: "ios" | "ipados" | "macos" | "watchos"
+    platform: "ios" | "ipados" | "macos" | "watchos"  // macos dropped from scope 2026-07-18 — historical, see banner above
     fcmToken: "..."
     widgetPushToken: "..."
     lastSeen: Timestamp
@@ -245,6 +247,8 @@ Cost: negligible (4 FCM messages instead of 1).
 
 ## 8. Multi-Platform Strategy
 
+> **Superseded (2026-07-18)** — retained as historical record of the original Feb 2026 platform scope; current scope is iPhone + iPad + Apple Watch only, with native macOS/visionOS dropped. See banner at top of document.
+
 ### Platforms
 - **iPhone** (iOS 26) — primary device, full app experience
 - **iPad** (iPadOS 26) — same app, adapted layout
@@ -311,7 +315,6 @@ Fond/
 **Client-side (Person A's device):**
 - Delete symmetric key from Keychain (propagates deletion via iCloud Keychain to all their devices)
 - Clear App Group UserDefaults → widget immediately shows "Not Connected"
-- Clear local SwiftData cache
 - Reload all widget timelines
 
 **Firestore (via Cloud Function `unlinkConnection`):**
@@ -323,7 +326,6 @@ Fond/
 **Person B's devices (on receiving push):**
 - Delete symmetric key from Keychain
 - Clear App Group UserDefaults
-- Clear local SwiftData cache
 - Reload all widgets → "Not Connected"
 - Show in-app notification if app is open
 
@@ -393,11 +395,11 @@ Free tier: 2M invocations/month. At ~10 updates/couple/day × 30 days = 300 invo
 | **Encryption** | CryptoKit X25519 + AES-256-GCM | Apple-native, zero dependencies |
 | **Key sync (own devices)** | iCloud Keychain (kSecAttrSynchronizable) | Apple handles E2E key distribution |
 | **Push to widgets** | FCM → APNs, fan-out to all partner devices | Near-real-time, all platforms |
-| **Widget platforms** | iOS, iPadOS, macOS, watchOS | One extension, all platforms |
+| **Widget platforms** | iOS, iPadOS, watchOS | One extension, all platforms |
 | **watchOS strategy** | Independent watch app + relevant widget | Works without iPhone |
 | **Codebase** | Single Xcode project, multiplatform targets | Shared models/crypto/services |
 | **Per-device registration** | `users/{uid}/devices/{deviceId}` subcollection | Each device has own push tokens |
-| **Local persistence** | SwiftData (no CloudKit sync) | Caching, offline history |
+| **Local persistence** | App Group UserDefaults (`group.com.mitsheth.Fond`) | Shared data bus for app/widget/NSE — SwiftData was planned here but never implemented |
 | **Privacy** | E2E encryption on all user content | Firebase only sees ciphertext |
 
 ---

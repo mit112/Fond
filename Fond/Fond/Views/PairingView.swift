@@ -29,14 +29,17 @@ struct PairingView: View {
                     .font(.title2.bold())
                     .foregroundStyle(FondColors.ink)
 
-                // Glass segmented picker
+                // Glass segmented picker — the container is a passive glass
+                // track; each segment carries its own interactive glass, so the
+                // track must not (an interactive container steals segment taps).
                 HStack(spacing: 0) {
                     segmentButton("Share Code", tag: 0)
                     segmentButton("Enter Code", tag: 1)
                 }
                 .padding(4)
                 .fondFloatingControl(
-                    in: RoundedRectangle(cornerRadius: 14, style: .continuous)
+                    in: RoundedRectangle(cornerRadius: 14, style: .continuous),
+                    interactive: false
                 )
                 .padding(.horizontal, 36)
 

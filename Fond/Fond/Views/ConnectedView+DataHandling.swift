@@ -74,6 +74,8 @@ extension ConnectedView {
                 startConnectionListener(connectionId: cid)
             }
 
+            startOwnUserListener(uid: uid)
+
             #if canImport(CoreLocation)
             await LocationManager.shared.captureAndUpload(
                 uid: uid
@@ -140,6 +142,24 @@ extension ConnectedView {
                 WidgetCenter.shared.reloadAllTimelines()
                 Task { await FondRelevanceUpdater.update() }
                 refreshRelationshipLine()
+            }
+    }
+
+    // MARK: Own User Listener
+
+    /// Listens to the user's OWN doc so a countdown edit made on another device
+    /// (countdown lives on the user doc, not the shared connection doc) reaches
+    /// this device's App Group + widgets. Companion to the connection listener.
+    func startOwnUserListener(uid: String) {
+        ownUserListener = FirebaseManager.shared
+            .listenToOwnUserDoc(uid: uid) { countdownDate, encryptedLabel in
+                Task {
+                    await FirebaseManager.shared.writeOwnCountdownToAppGroup(
+                        countdownDate: countdownDate,
+                        encryptedLabel: encryptedLabel
+                    )
+                    refreshRelationshipLine()
+                }
             }
     }
 

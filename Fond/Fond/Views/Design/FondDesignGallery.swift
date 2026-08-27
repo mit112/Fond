@@ -94,20 +94,23 @@ struct FondDesignGallery: View {
     }
 
     private var galleryToolbar: some View {
-        HStack(spacing: FondSpacing.two) {
-            Menu {
-                ForEach(Fixture.allCases) { option in
-                    Button(option.label) { select(option) }
+        ZStack {
+            HStack {
+                Menu {
+                    ForEach(Fixture.allCases) { option in
+                        Button(option.label) { select(option) }
+                    }
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.body.weight(.medium))
+                        .foregroundStyle(FondColors.ink)
+                        .frame(width: FondGeometry.minimumTarget, height: FondGeometry.minimumTarget)
+                        .contentShape(Rectangle())
                 }
-            } label: {
-                Image(systemName: "slider.horizontal.3")
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(FondColors.ink)
-                    .frame(width: FondGeometry.minimumTarget, height: FondGeometry.minimumTarget)
-            }
-            .accessibilityLabel("Choose gallery fixture")
+                .accessibilityLabel("Choose gallery fixture")
 
-            Spacer(minLength: FondSpacing.one)
+                Spacer()
+            }
 
             HStack(spacing: FondSpacing.two) {
                 faceButton("Now", face: .now)
@@ -120,23 +123,10 @@ struct FondDesignGallery: View {
             .padding(.horizontal, FondSpacing.four)
             .frame(height: 36)
             .fondControlPlate(in: Capsule())
-
-            Spacer(minLength: FondSpacing.one)
-
-            Button {
-                select(.togetherRevealed)
-            } label: {
-                Image(systemName: "text.justify.leading")
-                    .font(.body.weight(.medium))
-                    .foregroundStyle(FondColors.ink)
-                    .frame(width: FondGeometry.minimumTarget, height: FondGeometry.minimumTarget)
-            }
-            .buttonStyle(.plain)
-            .accessibilityLabel("Show Together thread")
         }
         .frame(height: FondGeometry.controlHeight)
         .padding(.horizontal, FondSpacing.one)
-        .fondFloatingControl(in: Capsule())
+        .fondFloatingControl(in: Capsule(), interactive: false)
         .frame(maxWidth: FondGeometry.contentMaxWidth)
         .accessibilityElement(children: .contain)
         .accessibilityIdentifier("fond.toolbar")

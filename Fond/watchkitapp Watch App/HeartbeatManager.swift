@@ -29,9 +29,6 @@ final class HeartbeatManager {
     /// Whether HealthKit authorization has been requested (not necessarily granted).
     private(set) var authorizationRequested = false
 
-    /// Whether the user has granted heart rate read permission.
-    private(set) var isAuthorized = false
-
     /// True while a HealthKit query is in flight.
     private(set) var isQuerying = false
 
@@ -66,15 +63,6 @@ final class HeartbeatManager {
                 read: [heartRateType]
             )
             authorizationRequested = true
-
-            // Check actual authorization status
-            let status = healthStore.authorizationStatus(for: heartRateType)
-            isAuthorized = (status == .sharingAuthorized)
-            // Note: .sharingAuthorized is misleading — for read-only, Apple uses
-            // the same enum. If the user denied, this returns .notDetermined
-            // (Apple hides the actual denial for privacy). We proceed anyway
-            // and let the query fail gracefully if not authorized.
-            isAuthorized = true // Optimistically — query will fail if denied
         } catch {
             errorMessage = "Authorization failed"
             logger.error("HealthKit auth error: \(error.localizedDescription)")
