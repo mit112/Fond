@@ -1,6 +1,10 @@
 # Fond — Current Status
 
-> Updated: July 18, 2026 — Ember Folio visual system shipped; verification-hardening test pass underway
+> Updated: August 26, 2026 — verification-hardening merged to `main`; NSE decrypt measured
+>
+> **Aug 26, 2026:** the verification-hardening branch is merged (`1fced63`, PR #1 MERGED, pushed to `origin/main`). On `main`: **39 Swift Testing cases in 13 suites + 9 XCTest UI = 45 passing, 0 failures**, and **51 Jest tests / 5 suites** covering all four Cloud Functions plus a 507-line Firestore-rules suite. All four targets build 0 errors / 0 compiler warnings. New: `FondTests/DecryptPerformanceTests.swift` measures the NSE payload decrypt at **5.5µs median / 6.3µs p99** on an iPhone 15 (A16, iOS 27) — the first real performance number in the repo, replacing an unmeasured "<1ms" that appeared in ~12 places.
+>
+> Prior header (July 18, 2026): Ember Folio visual system shipped; verification-hardening test pass underway
 >
 > This replaces a March 5, 2026 phase-log snapshot that described a pre-redesign, pre-test-suite state of the app (Liquid Glass content cards, no `FondTests`/`functions/src/__tests__`, wider platform scope). See `docs/superpowers/` for the redesign and hardening plans that superseded it.
 

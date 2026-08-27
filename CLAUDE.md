@@ -85,7 +85,7 @@ Key sync edge case: new device logs into existing paired account → keys may no
 
 ### Push Notification Pipeline (Dual-Path)
 Optimized for speed — two parallel delivery paths:
-1. **NSE fast path**: Cloud Function includes encrypted fields in FCM data payload → NSE decrypts from payload directly (~1ms), writes to App Group
+1. **NSE fast path**: Cloud Function includes encrypted fields in FCM data payload → NSE decrypts from payload directly (5.5µs measured on iPhone 15 / A16 — `FondTests/DecryptPerformanceTests.swift`), writes to App Group
 2. **Main app fallback**: Firestore real-time listener fires → decrypt locally (~1-2s)
 
 Cloud Function `notifyPartner` does FCM fan-out + direct APNs widget push (500ms delay to avoid race).

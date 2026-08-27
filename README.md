@@ -7,10 +7,10 @@ A privacy-first couples widget app for iOS 26, iPadOS 26, and watchOS 26. Two pe
 ## Features
 
 - **Real-time status sharing** — 16 statuses across Availability, Mood, Activity, and Love categories with color-coded emoji
-- **Encrypted messaging** — Short messages delivered in under 2 seconds via push notification pipeline
+- **Encrypted messaging** — Short messages via a push notification pipeline targeting under 2 seconds end-to-end (a design target — never measured on hardware; only the decrypt step has been benchmarked)
 - **Widget-first design** — 5 widget families (inline, circular, rectangular, small, medium) across iOS, iPadOS, and watchOS (a Mac can display the iPhone's widget via Continuity; there's no native Mac app)
 - **End-to-end encryption** — X25519 key exchange + AES-256-GCM; symmetric keys synced via iCloud Keychain
-- **Notification Service Extension** — Decrypts push payloads in <1ms without waking the main app
+- **Notification Service Extension** — Decrypts push payloads in a measured 5.5µs without waking the main app
 - **Heartbeat sharing** — Live BPM from Apple Watch via HealthKit integration
 - **Location distance** — Privacy-rounded coordinates (~1km precision), encrypted before upload
 - **Daily prompts** — Rotating relationship prompts both partners can answer
@@ -34,7 +34,7 @@ A privacy-first couples widget app for iOS 26, iPadOS 26, and watchOS 26. Two pe
 │         (iCloud Keychain sync)       │                      │
 │                                      │                      │
 │  NSE ───── decrypt payload ──────────┘                      │
-│  (no Firebase SDK, <1ms)                                    │
+│  (no Firebase SDK, 5.5µs)                                   │
 └────────────────────────┬────────────────────────────────────┘
                          │ Firestore + HTTPS Callable
                          ▼
@@ -64,7 +64,7 @@ A privacy-first couples widget app for iOS 26, iPadOS 26, and watchOS 26. Two pe
 
 ### Push Notification Pipeline
 
-The system is optimized for speed — partner updates should arrive in 1-2 seconds:
+The system is optimized for speed, with a design target of 1-2 seconds for partner updates. That end-to-end figure has never been measured — it needs two paired physical devices. The decrypt step inside it *has* been measured, at 5.5µs (`FondTests/DecryptPerformanceTests.swift`):
 
 1. Client writes encrypted data to Firestore **and** calls `notifyPartner` Cloud Function simultaneously
 2. Cloud Function reads caller's encrypted fields from Firestore and includes them in the FCM data payload
@@ -143,7 +143,7 @@ Fond/
 | Area | Implementation |
 |------|---------------|
 | **Encryption** | CryptoKit X25519 key exchange → AES-256-GCM. Per-message unique nonce. Keys synced via iCloud Keychain (`kSecAttrSynchronizable`). |
-| **Push pipeline** | Dual-path: NSE decrypts from payload (<1ms, no network) + main app Firestore fallback. Cloud Function includes encrypted fields in FCM data payload. |
+| **Push pipeline** | Dual-path: NSE decrypts from payload (5.5µs measured, no network) + main app Firestore fallback. Cloud Function includes encrypted fields in FCM data payload. |
 | **Widget updates** | NSE writes to App Group → `WidgetCenter.reloadAllTimelines()`. Direct APNs widget push via Cloud Function with 500ms delay to avoid race condition. |
 | **Cross-platform** | `#if canImport()` guards throughout. Animated MeshGradient limited to pre-connection onboarding (static LinearGradient on watchOS); the connected view uses a flat field on every platform. Widget uses `widgetRenderingMode` for fullColor/accented/vibrant. |
 | **Rate limiting** | 5-second cooldown with circular progress ring on send button. Server-side validation in Cloud Functions. |

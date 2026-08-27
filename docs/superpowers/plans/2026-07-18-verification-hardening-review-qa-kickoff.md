@@ -28,6 +28,22 @@ Then target the gate by `-destination 'platform=iOS Simulator,id=65FAAD62-…'` 
 
 ---
 
+## ✅ Session 2026-08-26 — §A re-run, §D MERGED. This handoff's endpoint is reached.
+
+**§D done.** `worktree-verification-hardening` (HEAD `3ef3657`) merged into `main` as **`1fced63`** — a true merge, not `--ff-only`, because `main` carried `b6124a4`. Clean auto-merge, **zero conflicts**. The three previously-unpushed branch commits (`5fd3d61`, `6cf11af`, `3ef3657`) were pushed first so PR #1's record is complete; **PR #1 auto-closed as MERGED**. `main` pushed to `origin`.
+
+**§A re-run green on the merged tree** (not on the branch): Swift `test_sim` on iPhone 17 Pro — **45 passed / 0 failed** (39 Swift Testing in 13 suites + 9 XCTest UI); `functions` `npm ci && build && lint && test` — **51 tests / 5 suites, exit 0**. Four-target build **0 errors, 0 compiler warnings, 93s**, all four products emitted with fresh mtimes, NSE still embeds zero frameworks.
+
+**Two merge frictions worth recording:**
+- The **`AGENTS.md` caveat below was out of date.** By 2026-08-26 `main`'s untracked `AGENTS.md` was a **symlink → `CLAUDE.md`** (created 2026-08-24), not a copy. It was moved aside for the merge; afterwards, per Mit, the branch's near-duplicate tracked file was replaced by a **tracked symlink** (`4f8fa35`) — the file still exists for a fresh clone, with one source of truth.
+- **Stale `.git/index.lock` twice.** One dated 2026-08-03 blocking the merge, and a second appearing mid-session at 21:26 (Xcode's own `git` re-indexing after file changes). Both had no holder — `lsof .git/index.lock` empty, no `git` process. Check before assuming a git failure is yours.
+
+**Also landed, outside this plan:** `FondTests/DecryptPerformanceTests.swift` (`5cd8d0f`) measures the NSE payload decrypt at **5.5µs median / 6.3µs p99** on an iPhone 15 (A16, iOS 27) and asserts a 1ms p99 budget. The contradictory `<1ms` / `<10ms` comments in `NotificationService.swift` are reconciled (`555d75b`).
+
+**Still pending:** **§C ratification** (below) and the **full P3 device matrix** — §B item 1 (countdown cross-device sync, the Task 9 fix) and items 2–4 were never completed; only the toolbar hit-test finding was. §C is now the blocker for P3.
+
+---
+
 ## Session 2026-07-23 — QA-support: device bug found + fixed (branch HEAD now `6cf11af`)
 
 Started §B on Mit's iPhone. First real-device finding was a **UI hit-testing bug**, now fixed:

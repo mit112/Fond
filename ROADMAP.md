@@ -7,6 +7,8 @@
 >
 > **UPDATE 2026-07-18 (evening):** The Ember Folio redesign is **done** — implemented, verified (23 tests + iPad/watch/widget builds green on Xcode 27), Mit-approved, and integrated to `main` at `0698387` (pushed). **P0 is now green on the app side** (build producible; Liquid Glass + MapKit reverse-geocode verified). The remaining loop-implementable work (**P0-backend + P1 + P2**) is packaged task-by-task in `docs/superpowers/plans/2026-07-18-fond-verification-hardening-plan.md`, with a ready-to-paste kickoff at `docs/superpowers/plans/2026-07-18-fond-verification-hardening-kickoff.md`. P3–P6 remain attended.
 
+> **UPDATE 2026-08-26 — P1 and P2 are DONE and on `main`.** The verification-hardening branch merged (`1fced63`, PR #1 MERGED, pushed). Gates on the merged tree: Swift **45 passed / 0 failed**, `functions` **51 tests / 5 suites** exit 0, four-target build **0 errors / 0 compiler warnings / 93s**. Fond also has its first performance measurement — the NSE payload decrypt at **5.5µs median on iPhone 15 / A16** (`FondTests/DecryptPerformanceTests.swift`), asserted at a 1ms budget so it stays a regression guard. **P3 (attended device QA) is the next gate**, and it is the big one: the NSE, widget push, HealthKit and background push have still never run on hardware, and no TestFlight has been cut. Before P3, ratify the §C watch-items in `docs/superpowers/plans/2026-07-18-verification-hardening-review-qa-kickoff.md`.
+
 ## Legend — who executes
 
 - 🤖 **LOOP** — an autonomous/agent loop can implement **and** verify this on ephemeral/test targets (compile, unit/emulator tests, lint). No secrets, no hardware, no live systems.
