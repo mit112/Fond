@@ -17,7 +17,9 @@
 //    is force-quit or the device is in Low Power Mode
 //  - NSE is a separate process — not subject to app background throttling
 //  - No network needed — data arrives in the push payload itself
-//  - Decryption is <1ms (CryptoKit AES-256-GCM)
+//  - Decryption is ~5.5µs for the whole 5-field payload (CryptoKit
+//    AES-256-GCM) — measured on iPhone 15 / A16, see
+//    FondTests/DecryptPerformanceTests.swift
 //
 //  Requirements:
 //  - Push must have "mutable-content": 1 in aps (set in notifyPartner.ts)
@@ -266,7 +268,8 @@ class NotificationService: UNNotificationServiceExtension {
     override func serviceExtensionTimeWillExpire() {
         // Called just before the extension is terminated by the system.
         // Deliver whatever we have — the original notification if decryption
-        // hasn't completed (it should complete in <10ms, so this is very unlikely).
+        // hasn't completed (measured at ~5.5µs for the full payload, so this is
+        // very unlikely).
         NSLog("[FondNSE] serviceExtensionTimeWillExpire — delivering best attempt")
         if let contentHandler, let bestAttemptContent {
             contentHandler(bestAttemptContent)
